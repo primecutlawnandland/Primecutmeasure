@@ -399,6 +399,7 @@ function docSheet(pid,k,crewSide){const p=person(pid),D=DOCS.find(x=>x[0]===k),o
   ${!crewSide?bypassBlock(p,k,on,by):''}${back}</div>`);return}
  const F=FORMS[k],sg=(p.sign||{})[k],sv=((p.form||{})[k])||{};UI.idph={};
  sheet(`<form id="docform" class="stack" novalidate data-id="${pid}" data-k="${k}" data-crew="${crewSide?1:''}"><h2>${es?F.title[1]:F.title[0]}</h2>
+  ${k!=='handbook'?`<div class="card" style="background:#FFF6E0;border:1.5px solid #F2C14E;font-size:.9rem;line-height:1.45"><b>${T('Sample app.','App de prueba.')}</b> ${T('Do not enter a real Social Security number, bank account or ID photo yet. Real ones go in once secure logins are set up.','Todavía no escriba un número de Seguro Social, cuenta bancaria ni foto de ID reales. Los reales se agregan cuando haya inicio de sesión seguro.')}</div>`:''}
   ${on?`<div class="card"><div class="item" style="cursor:default"><div class="ico green">${ic('check',18)}</div><div class="grow"><div class="t">${T('Signed by','Firmado por')} ${esc(sg?sg.name:p.name)}</div><div class="d">${fmtD(on)}</div></div></div></div>`:''}
   ${(F.fields||[]).map(f=>fieldHTML(f,sv,on,es,p)).join('')}
   ${F.text?`<div class="card" style="font-size:.92rem;line-height:1.5">${es?F.text[1]:F.text[0]}</div>`:''}
