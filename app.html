@@ -242,7 +242,7 @@ function seed(){
   people:[{id:'p1',name:'Jake Turner',crew:'c1',inAt:null,me:true,phone:'(859) 555-0147',email:'jake@example.com',role:'Crew lead',pay:22,payType:'hour',start:'2024-03-18',emName:'Maria Turner',emPhone:'(859) 555-0190',docs:{w4:'2024-03-18',i9:'2024-03-18',k4:'2024-03-18',dd:'2024-03-20',license:'2024-03-18',handbook:'2024-03-18'}}],
   week:[505,530,470],problems:[]};
 }
-let S;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}if(!S)S=seed();S.photos=S.photos||[];S.estimates.forEach(e=>{if(!e.date&&e.status==='sent'){const m=/(\d+) days? ago/.exec(e.sentAgo||'');e.date=new Date(Date.now()-(m?+m[1]:0)*864e5).toISOString()}});{const h=S.customers.find(c=>c.id==='k1');if(h&&!h.history)h.history=HIST()}
+let S;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}if(!S)S=seed();S.photos=S.photos||[];if(!S.fleet)S.fleet=FSEED();S.estimates.forEach(e=>{if(!e.date&&e.status==='sent'){const m=/(\d+) days? ago/.exec(e.sentAgo||'');e.date=new Date(Date.now()-(m?+m[1]:0)*864e5).toISOString()}});{const h=S.customers.find(c=>c.id==='k1');if(h&&!h.history)h.history=HIST()}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const UI={pts:[],closed:false,mcust:null,mback:null,pall:false,pq:'',ptype:'All',draft:null,tab:null,job:null,day:0,q:'',locating:false};let PHOTO={};
 const cust=id=>S.customers.find(c=>c.id===id), crew=id=>S.crews.find(c=>c.id===id), job=id=>S.jobs.find(j=>j.id===id);
@@ -262,6 +262,7 @@ function issues(){
  day(0).filter(j=>j.status==='skipped').forEach(j=>out.push({k:'red',i:'x',t:`Skipped ${cust(j.cust).address.split(',')[0]}`,d:j.why,act:{a:'tomorrow',id:j.id,l:'Move to tomorrow'}}));
  day(0).filter(j=>j.status==='now'&&now()-j.startedAt>j.est+5).forEach(j=>out.push({k:'amber',i:'warn',t:`${crew(j.crew).name} is running long`,d:`${hrs(now()-j.startedAt-j.est)} over at ${cust(j.cust).address.split(',')[0]}`}));
  S.problems.forEach(p=>out.push({k:'red',i:'warn',t:p.kind,d:`${p.where}: ${p.text}`}));
+ (S.fleet||[]).filter(a=>!a.retired).forEach(a=>fleetDue(a).forEach(x=>out.push({k:x.k,i:'truck',t:`${a.name}: ${x.t}`,d:x.d,act:{a:'asset',id:a.id,l:'Open'}})));
  return out;
 }
 
@@ -289,7 +290,7 @@ function home(){
   <button class="stat ${iss.length?'alert':''}" data-a="scrollTo" data-id="needs"><b class="num">${iss.length}</b><span>Need you</span></button>
  </div>
  ${iss.length?`<div class="sec" id="needs"><h2>Needs you</h2></div><div class="card">${iss.slice(0,4).map(x=>`<div class="item" style="cursor:default"><div class="ico ${x.k}">${ic(x.i,20)}</div><div class="grow"><div class="t">${esc(x.t)}</div><div class="d">${esc(x.d)}</div>${x.act?`<button class="btn sm dark" style="margin-top:8px" data-a="${x.act.a}" data-id="${x.act.id}">${x.act.l}</button>`:''}</div></div>`).join('')}</div>`:`<div class="card sub" id="needs">All clear. Nothing needs you right now.</div>`}
- <div class="sec"><h2>Crews</h2><span><button class="link" data-a="tab" data-t="team">Team</button> · <button class="link" data-a="tab" data-t="sched">Schedule</button></span></div>
+ <div class="sec"><h2>Crews</h2><span><button class="link" data-a="tab" data-t="team">Team</button> · <button class="link" data-a="tab" data-t="fleet">Fleet</button> · <button class="link" data-a="tab" data-t="sched">Schedule</button></span></div>
  <div class="card">${S.crews.map(c=>{const s=crewInfo(c.id);return `<button class="item" data-a="crewsheet" data-id="${c.id}"><div class="av" style="background:${c.color}">${c.name.slice(-1)}</div><div class="grow"><div class="t">${c.name} <span class="sub" style="font-weight:500">· ${c.lead}</span></div><div class="d">${s.cur?'At '+esc(cust(s.cur.cust).address.split(',')[0]):'Between stops'} · done by ${fmtT(s.finish)}</div><div class="mini">${s.js.map(j=>`<i style="flex:1;background:${j.status==='done'?'var(--green)':j.status==='now'?'#A6DE9C':j.status==='skipped'?'var(--red)':'transparent'}"></i>`).join('')}</div></div><span class="chip ${s.behind?'c-amber':'c-green'}">${s.behind?'Behind':'On pace'}</span></button>`}).join('')}</div>
  </div>`;
 }
@@ -865,6 +866,7 @@ function sales(){
   <div class="stat" style="cursor:default"><b class="num">${money(sum(won,estTotal))}</b><span>Won this season</span></div>
   <div class="stat" style="cursor:default"><b class="num">${decided.length?Math.round(won.length/decided.length*100):0}%</b><span>Close rate</span></div>
  </div>
+ ${goalCard()}
  <div class="sec"><h2>Sales funnel</h2><button class="btn sm go" data-a="newlead">+ New lead</button></div>
  ${funnelCard()}
  <input class="search" id="eq" type="search" placeholder="Search name, street, phone, title or #" value="${esc(UI.eq||'')}" aria-label="Search leads and proposals">
@@ -935,10 +937,149 @@ function estBuilder(){
  <div class="card">${lines.length?lines.map(([id,n])=>{const it=plant(id);return `<div class="item" style="cursor:default;flex-wrap:wrap"><div class="grow" style="min-width:60%"><div class="t" style="white-space:normal">${esc(it.name)}</div><div class="d">${esc(it.size)}${it.svc&&it.high>0?' · natl avg '+pm(it.low)+' to '+pm(it.high):''}</div></div><b class="num" id="lt-${id}">${money(priceOf(id)*n)}</b>
   <div style="display:flex;gap:6px;width:100%;align-items:center;flex-wrap:wrap"><label class="sub sm" for="q-${id}">Qty</label><input id="q-${id}" class="search" style="padding:0 10px;background-image:none;min-height:42px;width:68px;flex:none" type="number" inputmode="decimal" min="0" value="${n}" data-c="lineqty" data-id="${id}"><label class="sub sm" for="pr-${id}">Price</label><input id="pr-${id}" class="search" style="padding:0 10px;background-image:none;min-height:42px;width:68px;flex:none" type="number" inputmode="decimal" min="0" step="0.01" value="${priceOf(id)}" data-c="myprice" data-id="${id}"><label class="btn sm" style="position:relative;overflow:hidden;padding:0 10px;display:flex;align-items:center;min-height:42px" title="Attach a photo">${(d.photos||{})[id]?`<img src="${(S.photos.find(x=>x.id===d.photos[id])||{}).src||''}" alt="Photo attached" style="width:26px;height:26px;border-radius:6px;object-fit:cover">`:ic('cam',20)}<input type="file" accept="image/*" data-c="lphoto" data-id="${id}" style="position:absolute;inset:0;opacity:0" aria-label="Attach a photo to ${esc(it.name)}"></label><button class="link" data-a="rmline" data-id="${id}" style="margin-left:auto">Remove</button></div></div>`}).join(''):'<div class="sub sm">Add services or plants from the price book below.</div>'}</div>
  <div class="total"><span>Total</span><span class="num" id="esttot">${money(tot)}</span></div>
+ ${lines.length?`<div class="sec"><h2>Price check</h2></div><div id="pcheck" class="stack" style="gap:10px">${priceCheck(d)}</div>`:''}
  <button class="btn full big go" data-a="sendest">Send to customer</button>
  <div class="sec"><h2>Price book</h2><span class="sub sm">${allItems().length} items · <button class="link" data-a="edititem" data-id="" style="padding:0">+ Add item</button></span></div>
  ${catalog('est')}
  </div>`}
+
+
+/* ---------------- PRICING: overhead, equipment, labor, profit, yearly goal ---------------- */
+// Every number here is a placeholder until Hunter enters the real ones.
+function PDEF(){return {goal:300000,wage:18,burden:20,workers:6,hours:1400,profit:15,matCost:50,visits:30,start:'03-01',end:'12-15',
+ overhead:[['Insurance (liability, auto, workers comp)',12000],['Truck and trailer payments',14400],['Shop or yard rent',7200],['Phones, software, website',3600],['Marketing',4000],['Accounting and office',3000],['Owner salary',50000]],
+ equip:[['Trimmers, blowers, edgers',2500],['Hand tools and small repairs',1000]]}}
+function PR(){if(!S.price)S.price=PDEF();return S.price}
+function calc(){const P=PR(),fh=Math.max(1,P.workers*P.hours),oh=sum(P.overhead,x=>+x[1]||0),eq=sum(P.equip,x=>+x[1]||0)+fleetYear(),lab=P.wage*(1+P.burden/100),pf=Math.min(90,P.profit)/100;
+ const be=lab+oh/fh+eq/fh,rate=be/(1-pf),goalRate=P.goal/fh,use=Math.max(rate,goalRate);
+ return {fh,oh,eq,lab,ohH:oh/fh,eqH:eq/fh,be,rate,goalRate,use,pf,cost:fh*lab+oh+eq,minSales:(fh*lab+oh+eq)/(1-pf)}}
+const MATS=it=>!it.svc&&it.id!=='m2'&&it.id!=='m3';
+function priceCheck(d){const P=PR(),C=calc(),lines=Object.entries(d.lines).filter(([,n])=>n>0),tot=sum(lines,([id,n])=>priceOf(id)*n);
+ const mh=d.mh!=null&&d.mh!==''?+d.mh:(d.lines.m3||0),matP=sum(lines.filter(([id])=>MATS(plant(id))),([id,n])=>priceOf(id)*n),matC=matP*P.matCost/100;
+ if(!lines.length)return '';
+ const head=`<div class="field"><label for="e-mh">Crew hours on site (people × hours)</label><input id="e-mh" type="number" inputmode="decimal" min="0" step="0.5" data-c="mh" value="${mh||''}" placeholder="Example: 3 people × 4 hours = 12"></div>`;
+ if(!mh)return head+`<div class="sub sm">Enter the crew hours to see if this price covers labor, overhead, equipment and profit.</div>`;
+ const costs=mh*C.be+matC,profit=tot-costs,pct=tot?profit/tot*100:0,need=Math.max(costs/(1-C.pf),mh*C.use+matP),gap=need-tot,ok=gap<=0.5;
+ const row=(l,v,b)=>`<div style="display:flex;justify-content:space-between;font-size:.9rem${b?';font-weight:700':''}"><span>${l}</span><span class="num">${v}</span></div>`;
+ return head+`<div class="card stack" style="gap:6px;border:2px solid ${ok?'#4ABC39':'#E5484D'}">
+ <div style="display:flex;align-items:center;gap:8px"><span class="chip ${ok?'c-green':'c-red'}">${ok?'Priced right':'Priced too low'}</span><b class="num" style="margin-left:auto">${Math.round(pct)}% profit</b></div>
+ ${row(`Labor (${mh} h × ${money2(C.lab)})`,money(mh*C.lab))}${row(`Overhead (${mh} h × ${money2(C.ohH)})`,money(mh*C.ohH))}${row(`Equipment (${mh} h × ${money2(C.eqH)})`,money(mh*C.eqH))}${matP?row(`Plants and materials (about ${P.matCost}% of their price)`,money(matC)):''}
+ ${row('Your cost',money(costs),1)}${row('This estimate',money(tot),1)}
+ <div class="sub sm" style="white-space:normal">${ok?`Covers every cost and stays on pace for the ${money(P.goal)} goal.`:`Raise it by <b>${money(gap)}</b> to <b>${money(need)}</b> to cover costs, make ${P.profit}% and stay on pace for the yearly goal.`}</div>
+ ${ok?'':`<button class="btn full dark" data-a="fixprice" data-v="${Math.ceil(gap)}">Add ${money(Math.ceil(gap))} to the labor line</button>`}</div>`}
+function pcRefresh(){const el=document.getElementById('pcheck');if(!el)return;const a=document.activeElement,id=a&&a.id,pos=a&&a.selectionStart;el.innerHTML=priceCheck(UI.draft);if(id==='e-mh'){const n=document.getElementById('e-mh');n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}}
+const money2=n=>'$'+(Math.round(n*100)/100).toFixed(2);
+function bookedSales(){const P=PR(),y=new Date().getFullYear();
+ const est=sum(S.estimates.filter(e=>e.status==='approved'&&(!e.date||new Date(e.date).getFullYear()===y)),estTotal);
+ const rec=sum(S.customers.filter(c=>!c.archived),c=>sum(c.services.filter(x=>x[2]!=='est'),x=>(+x[1]||0)*(x[0]==='Mowing'?P.visits:1)));
+ return {est,rec,all:est+rec}}
+function pace(){const P=PR(),y=new Date().getFullYear(),a=new Date(y+'-'+P.start+'T00:00'),b=new Date(y+'-'+P.end+'T23:59'),t=Date.now();return Math.max(0,Math.min(1,(t-a)/(b-a)))}
+function goalCard(){const P=PR(),B=bookedSales(),f=pace(),should=P.goal*f,pct=P.goal?B.all/P.goal:0,ahead=B.all>=should;
+ return `<button class="card" data-a="tab" data-t="pricing" style="display:block;text-align:left;width:100%;border:0;cursor:pointer">
+ <div style="display:flex;justify-content:space-between;align-items:baseline"><div class="sub sm">${new Date().getFullYear()} sales goal</div><b class="num">${money(P.goal)}</b></div>
+ <div style="height:12px;border-radius:99px;background:var(--mint);margin:8px 0;position:relative;overflow:hidden"><div style="height:100%;width:${Math.min(100,pct*100)}%;background:${ahead?'#4ABC39':'#F2C14E'};border-radius:99px"></div><div style="position:absolute;top:0;bottom:0;left:${f*100}%;width:2px;background:var(--deep)"></div></div>
+ <div style="display:flex;justify-content:space-between;font-size:.88rem"><span><b class="num">${money(B.all)}</b> booked (${Math.round(pct*100)}%)</span><span class="chip ${ahead?'c-green':'c-amber'}">${ahead?'On pace':'Behind by '+money(should-B.all)}</span></div>
+ <div class="sub sm" style="margin-top:6px">Charge at least <b>${money2(calc().use)}</b> per crew hour · Pricing setup ›</div></button>`}
+function pricing(){const P=PR(),C=calc(),B=bookedSales();
+ const num=(k,l,suf='',step=1)=>`<div class="field"><label for="ps-${k}">${l}</label><div style="display:flex;align-items:center;gap:8px"><input id="ps-${k}" type="number" inputmode="decimal" step="${step}" min="0" value="${P[k]}" data-c="pset" data-k="${k}" style="flex:1">${suf?`<span class="sub sm">${suf}</span>`:''}</div></div>`;
+ const list=(k,title,hint)=>`<div class="sec"><h2>${title}</h2><span class="sub sm num">${money(sum(P[k],x=>+x[1]||0))}/yr</span></div><div class="sub sm" style="margin-top:-8px">${hint}</div>
+ <div class="card stack" style="gap:8px">${P[k].map(([n,v],i)=>`<div style="display:flex;gap:6px;align-items:center"><input class="search" style="flex:1;min-width:0;background-image:none;padding:0 10px;min-height:44px" value="${esc(n)}" data-c="plist" data-k="${k}" data-i="${i}" data-f="0" aria-label="Name"><input class="search num" style="width:96px;flex:none;background-image:none;padding:0 10px;min-height:44px" type="number" inputmode="decimal" value="${v}" data-c="plist" data-k="${k}" data-i="${i}" data-f="1" aria-label="Yearly cost"><button class="btn sm" data-a="prm" data-k="${k}" data-i="${i}" aria-label="Remove">×</button></div>`).join('')}
+ <button class="btn sm" data-a="padd" data-k="${k}">+ Add a line</button></div>`;
+ return `<div class="stack"><button class="back" data-a="tab" data-t="sales">${ic('back',18)} Sales</button><h1>Pricing setup</h1>
+ <div class="sub">Enter your real yearly numbers. Every estimate is checked against them. Placeholder numbers are filled in for now.</div>
+ <div class="hero"><div class="lbl">Charge at least</div><div class="big num">${money2(C.use)}</div><div class="of">per crew hour (one person, one hour)</div></div>
+ <div class="card stack" style="gap:6px">
+  ${[['Crew pay with taxes and workers comp',C.lab],['Overhead',C.ohH],['Equipment',C.eqH]].map(([l,v])=>`<div style="display:flex;justify-content:space-between;font-size:.9rem"><span>${l}</span><span class="num">${money2(v)}/h</span></div>`).join('')}
+  <div style="display:flex;justify-content:space-between;font-weight:700"><span>Break-even</span><span class="num">${money2(C.be)}/h</span></div>
+  <div style="display:flex;justify-content:space-between;font-size:.9rem"><span>With ${P.profit}% profit</span><span class="num">${money2(C.rate)}/h</span></div>
+  <div style="display:flex;justify-content:space-between;font-size:.9rem"><span>Needed to hit the ${money(P.goal)} goal</span><span class="num">${money2(C.goalRate)}/h</span></div>
+  <div class="sub sm" style="white-space:normal">${C.goalRate>C.rate?`The goal needs more than your profit rate, so estimates are checked at the goal rate. Your crews have ${C.fh.toLocaleString()} billable hours a year.`:`Your goal is under ${money(C.minSales)}, the least you need in labor sales to cover costs and make ${P.profit}%. Estimates are checked at the profit rate.`} Plant and material sales count toward the goal too, so this is on the safe side.</div></div>
+ <div class="card stack" style="gap:6px"><div style="display:flex;justify-content:space-between"><span>Booked this year</span><b class="num">${money(B.all)}</b></div><div class="sub sm">${money(B.est)} from approved estimates + ${money(B.rec)} from recurring services for the season (mowing × ${P.visits} visits)</div></div>
+ <div class="sec"><h2>Goal and profit</h2></div><div class="card stack" style="gap:10px">${num('goal','Yearly sales goal','$',1000)}${num('profit','Profit you want','%')}
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="field"><label for="ps-start">Season starts</label><input id="ps-start" value="${P.start}" data-c="pset" data-k="start" placeholder="03-01"></div><div class="field"><label for="ps-end">Season ends</label><input id="ps-end" value="${P.end}" data-c="pset" data-k="end" placeholder="12-15"></div></div></div>
+ <div class="sec"><h2>Crew labor</h2></div><div class="card stack" style="gap:10px">${num('workers','People in the field','people')}${num('wage','Average crew pay','$/h',0.5)}${num('burden','Payroll taxes and workers comp on top of pay','%')}${num('hours','Billable hours per person per year','hours',10)}${num('visits','Mowing visits per season','visits')}${num('matCost','Plants and materials cost you about','% of price')}</div>
+ ${list('overhead','Overhead','Yearly costs that are not tied to one job.')}
+ <div class="sec"><h2>Fleet</h2><span class="sub sm num">${money(fleetYear())}/yr</span></div>
+ <button class="card item" data-a="tab" data-t="fleet" style="width:100%;border:0;text-align:left"><div class="ico green">${ic('truck',20)}</div><div class="grow"><div class="t">${(S.fleet||[]).filter(a=>!a.retired).length} trucks, trailers and machines</div><div class="d">Payments, insurance, fuel and repairs from each profile</div></div><span class="chev">${ic('chev',16)}</span></button>
+ ${list('equip','Small tools and other equipment','Yearly cost of anything not in the fleet. Spread over every crew hour.')}
+ <button class="link" data-a="preset" style="align-self:center">Reset to sample numbers</button></div>`}
+
+
+/* ---------------- FLEET & EQUIPMENT ---------------- */
+const FKINDS=[['Truck','miles',5000],['Trailer','',0],['Mower','hours',100],['Equipment','hours',100]];
+const SVCS=['Oil change','Tires','Brakes','Blades sharpened or replaced','Belts','Filters','Repair','Inspection','Other'];
+function FSEED(){const d=n=>new Date(Date.now()+n*864e5).toISOString().slice(0,10);return [
+ {id:'f1',kind:'Truck',name:'Truck 1',year:'2019',make:'Ford',model:'F-250',serial:'',plate:'',meter:84200,oilEvery:5000,lastOilAt:80100,regDue:d(12),insCo:'',insPolicy:'',insDue:d(120),warranty:'',pay:650,ins:2400,run:9000,service:[{date:d(-40),what:'Oil change',cost:89,meter:80100,notes:''}]},
+ {id:'f2',kind:'Mower',name:'Zero-turn 1',year:'2023',make:'Scag',model:'Turf Tiger II 61"',serial:'',plate:'',meter:612,oilEvery:100,lastOilAt:540,regDue:'',insCo:'',insPolicy:'',insDue:'',warranty:d(24),pay:280,ins:300,run:1500,service:[]}]}
+const unitOf=a=>(FKINDS.find(k=>k[0]===a.kind)||[])[1]||'';
+const daysTo=iso=>Math.ceil((new Date(iso+'T12:00')-Date.now())/864e5);
+const aYear=a=>(+a.pay||0)*12+(+a.ins||0)+(+a.run||0);
+function fleetYear(){return sum((S.fleet||[]).filter(a=>!a.retired),aYear)}
+function fleetDue(a){const o=[],u=unitOf(a);
+ const date=(iso,lbl,soon)=>{if(!iso)return;const n=daysTo(iso);if(n<0)o.push({k:'red',t:`${lbl} overdue`,d:`Was due ${fmtD(iso)}`,w:lbl});else if(n<=soon)o.push({k:'amber',t:`${lbl} in ${n} day${n===1?'':'s'}`,d:fmtD(iso),w:lbl})};
+ date(a.regDue,'Tags and registration due',30);date(a.insDue,'Insurance renews',30);
+ if(a.oilEvery&&u&&a.meter!=null&&a.lastOilAt!=null&&a.lastOilAt!==''){const left=+a.oilEvery-(+a.meter-+a.lastOilAt);if(left<=0)o.push({k:'red',t:'Oil change overdue',d:`${Math.abs(left).toLocaleString()} ${u} past due`,w:'Oil change'});else if(left<=a.oilEvery*0.1)o.push({k:'amber',t:`Oil change in ${left.toLocaleString()} ${u}`,d:`Every ${(+a.oilEvery).toLocaleString()} ${u}`,w:'Oil change'})}
+ if(a.warranty){const n=daysTo(a.warranty);if(n>=0&&n<=60)o.push({k:'amber',t:`Warranty ends in ${n} days`,d:'Get any repairs done while it is covered',w:'Warranty'})}
+ return o}
+function fleet(){const F=(S.fleet||[]).filter(a=>!a.retired),k=UI.fk||'All',due=F.flatMap(a=>fleetDue(a).map(x=>({...x,a})));
+ const r=F.filter(a=>k==='All'||a.kind===k);
+ return `<div class="stack"><button class="back" data-a="tab" data-t="home">${ic('back',18)} Home</button>
+ <div class="sec" style="margin:0"><h1>Fleet</h1><button class="btn sm dark" data-a="assetform" data-id="">+ Add</button></div>
+ ${due.length?`<div class="card">${due.map(x=>`<button class="item" data-a="asset" data-id="${x.a.id}"><div class="ico ${x.k}">${ic('warn',18)}</div><div class="grow"><div class="t">${esc(x.a.name)}: ${x.t}</div><div class="d">${esc(x.d)}</div></div><span class="chev">${ic('chev',16)}</span></button>`).join('')}</div>`:`<div class="sub sm">Nothing due in the next 30 days.</div>`}
+ <div class="fchips">${['All','Truck','Trailer','Mower','Equipment'].map(t=>`<button class="fchip" data-a="fkind" data-t="${t}" aria-pressed="${k===t}">${t==='All'||t==='Equipment'?t:t+'s'} <span style="opacity:.7">${F.filter(a=>t==='All'||a.kind===t).length}</span></button>`).join('')}</div>
+ <div class="card">${r.length?r.map(a=>{const d=fleetDue(a),u=unitOf(a);return `<button class="item" data-a="asset" data-id="${a.id}"><div class="ico ${d.some(x=>x.k==='red')?'red':d.length?'amber':'green'}">${ic('truck',20)}</div><div class="grow"><div class="t">${esc(a.name)}</div><div class="d">${esc([a.year,a.make,a.model].filter(Boolean).join(' '))}${u&&a.meter!=null&&a.meter!==''?' · '+(+a.meter).toLocaleString()+' '+u:''}</div></div>${d.length?`<span class="chip ${d.some(x=>x.k==='red')?'c-red':'c-amber'}">${d.length} due</span>`:''}<span class="chev">${ic('chev',16)}</span></button>`}).join(''):'<div class="sub sm">Nothing here yet. Tap + Add.</div>'}</div>
+ <div class="card"><div class="item" style="cursor:default"><div class="grow"><div class="t">Yearly fleet cost</div><div class="d">Payments, insurance, fuel and repairs. Goes into your pricing.</div></div><b class="num">${money(fleetYear())}</b></div></div></div>`}
+function assetView(){const a=(S.fleet||[]).find(x=>x.id===UI.asset);if(!a){UI.tab='fleet';return fleet()}const u=unitOf(a),due=fleetDue(a),dueW=due.map(x=>x.w);
+ const st=(lbl,val,w)=>{const x=due.find(y=>y.w===w);return `<div class="item" style="cursor:default"><div class="grow"><div class="d">${lbl}</div><div class="t">${val||'<span class="sub">Not set</span>'}</div></div>${x?`<span class="chip ${x.k==='red'?'c-red':'c-amber'}">${x.k==='red'?'Overdue':'Due soon'}</span>`:val?'<span class="chip c-green">OK</span>':''}</div>`};
+ const oil=a.oilEvery&&u?`Every ${(+a.oilEvery).toLocaleString()} ${u}${a.lastOilAt!==''&&a.lastOilAt!=null?' · last at '+(+a.lastOilAt).toLocaleString():''}`:'';
+ const kv=(l,v)=>v?`<div class="item" style="cursor:default"><div class="grow"><div class="d">${l}</div><div class="t" style="white-space:normal">${esc(v)}</div></div></div>`:'';
+ return `<div class="stack"><button class="back" data-a="tab" data-t="fleet">${ic('back',18)} Fleet</button>
+ <div class="sec" style="margin:0"><div><div class="sub sm">${esc(a.kind)}</div><h1>${esc(a.name)}</h1></div><button class="btn sm" data-a="assetform" data-id="${a.id}">Edit</button></div>
+ <div class="sub">${esc([a.year,a.make,a.model].filter(Boolean).join(' '))}</div>
+ ${u?`<div class="card"><div class="item" style="cursor:default;gap:8px"><div class="grow"><div class="d">Current ${u}</div><input id="as-m" class="search num" style="background-image:none;padding:0 10px;min-height:44px" type="number" inputmode="numeric" value="${a.meter??''}"></div><button class="btn dark" data-a="assetmeter" data-id="${a.id}" style="align-self:flex-end">Update</button></div></div>`:''}
+ <div class="sec"><h2>Due dates</h2></div>
+ <div class="card">${a.kind==='Truck'||a.kind==='Trailer'?st('Tags and registration',a.regDue?fmtD(a.regDue):'','Tags and registration due'):''}${st('Insurance renews',a.insDue?fmtD(a.insDue):'','Insurance renews')}${u?st('Oil change',oil,'Oil change'):''}${st('Warranty ends',a.warranty?fmtD(a.warranty):'','Warranty')}</div>
+ <div class="sec"><h2>Service records</h2><button class="btn sm go" data-a="svclog" data-id="${a.id}">+ Log service</button></div>
+ <div class="card">${(a.service||[]).length?a.service.slice().sort((x,y)=>y.date.localeCompare(x.date)).map(r=>`<div class="item" style="cursor:default"><div class="ico">${ic('check',18)}</div><div class="grow"><div class="t">${esc(r.what)}</div><div class="d" style="white-space:normal">${fmtD(r.date)}${r.meter!==''&&r.meter!=null&&u?' · '+(+r.meter).toLocaleString()+' '+u:''}${r.notes?' · '+esc(r.notes):''}</div></div>${r.cost?`<b class="num">${money(+r.cost)}</b>`:''}</div>`).join(''):'<div class="sub sm">No service logged yet.</div>'}
+ ${(a.service||[]).length?`<div class="sub sm" style="padding:6px 2px">Spent this year: <b class="num">${money(sum(a.service.filter(r=>r.date.slice(0,4)===String(new Date().getFullYear())),r=>+r.cost||0))}</b></div>`:''}</div>
+ <div class="sec"><h2>Details</h2></div>
+ <div class="card">${kv(a.kind==='Truck'||a.kind==='Trailer'?'VIN':'Serial number',a.serial)}${kv('License plate',a.plate)}${kv('Insurance company',a.insCo)}${kv('Policy number',a.insPolicy)}${!a.serial&&!a.plate&&!a.insCo&&!a.insPolicy?'<div class="sub sm">Tap Edit to add the VIN or serial, plate and insurance.</div>':''}</div>
+ <div class="sec"><h2>Yearly cost</h2><b class="num">${money(aYear(a))}</b></div>
+ <div class="card">${kv('Payment',a.pay?money(+a.pay)+' a month':'')}${kv('Insurance',a.ins?money(+a.ins)+' a year':'')}${kv('Fuel and repairs',a.run?money(+a.run)+' a year':'')}<div class="sub sm" style="padding:6px 2px">This is included in the price of every crew hour.</div></div>
+ <button class="btn full redb" data-a="assetretire" data-id="${a.id}">Sold or retired</button></div>`}
+function assetForm(id,err=''){const a=id?(S.fleet||[]).find(x=>x.id===id):{kind:'Truck',name:'',oilEvery:5000};
+ const f=(k,l,t='text',ph='')=>`<div class="field"><label for="af-${k}">${l}</label><input id="af-${k}" type="${t}" ${t==='number'?'inputmode="decimal"':''} value="${esc(a[k]??'')}" placeholder="${ph}"></div>`,two=(x,y)=>`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${x}${y}</div>`;
+ sheet(`<form id="assetform" class="stack" novalidate data-id="${id||''}"><h2>${id?'Edit '+esc(a.name):'Add to the fleet'}</h2>${err?`<div class="err">${err}</div>`:''}
+ ${two(`<div class="field"><label for="af-kind">Type</label><select id="af-kind">${FKINDS.map(([k])=>`<option ${k===a.kind?'selected':''}>${k}</option>`).join('')}</select></div>`,f('name','Name','text','Example: Truck 2'))}
+ ${two(f('year','Year','text'),f('make','Make'))}${f('model','Model')}
+ ${two(f('serial','VIN or serial #'),f('plate','License plate'))}
+ <h3 style="margin-top:6px">Due dates</h3>
+ ${two(f('regDue','Tags due','date'),f('insDue','Insurance renews','date'))}${f('warranty','Warranty ends','date')}
+ <h3 style="margin-top:6px">Oil changes</h3><div class="sub sm" style="margin-top:-6px">Miles for trucks, engine hours for mowers and equipment. Leave blank for trailers.</div>
+ ${two(f('meter','Miles or hours now','number'),f('oilEvery','Change oil every','number'))}${f('lastOilAt','Miles or hours at last oil change','number')}
+ <h3 style="margin-top:6px">Insurance and cost</h3>
+ ${two(f('insCo','Insurance company'),f('insPolicy','Policy number'))}
+ ${two(f('pay','Payment per month ($)','number'),f('ins','Insurance per year ($)','number'))}${f('run','Fuel and repairs per year ($)','number','Your best guess')}
+ <button class="btn full big go" type="submit">Save</button></form>`)}
+function saveAsset(){const f=$('#assetform'),id=f.dataset.id,g=k=>$('#af-'+k).value.trim(),v={};
+ ['kind','name','year','make','model','serial','plate','regDue','insDue','warranty','insCo','insPolicy'].forEach(k=>v[k]=g(k));
+ ['meter','oilEvery','lastOilAt','pay','ins','run'].forEach(k=>{const x=g(k);v[k]=x===''?'':+x});
+ if(!v.name)return assetForm(id,'Give it a name, like Truck 2 or Zero-turn 1.');
+ if(['meter','oilEvery','lastOilAt','pay','ins','run'].some(k=>v[k]!==''&&!(v[k]>=0)))return assetForm(id,'Use numbers only for miles, hours and dollars.');
+ close();S.fleet=S.fleet||[];
+ if(id){const a=S.fleet.find(x=>x.id===id);commit(`Saved ${v.name}`,()=>Object.assign(a,v))}
+ else{const nid='f'+Date.now();commit(`${v.name} added to the fleet`,()=>S.fleet.push({id:nid,...v,service:[]}));UI.asset=nid}
+ UI.tab='asset';render();scrollTo(0,0)}
+function svcForm(id,err=''){const a=S.fleet.find(x=>x.id===id),u=unitOf(a);
+ sheet(`<form id="svcform" class="stack" novalidate data-id="${id}"><h2>Log service</h2>${err?`<div class="err">${err}</div>`:''}
+ <div class="field"><label for="sv-w">What was done</label><select id="sv-w">${SVCS.map(x=>`<option>${x}</option>`).join('')}</select></div>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="field"><label for="sv-d">Date</label><input id="sv-d" type="date" value="${new Date().toISOString().slice(0,10)}"></div><div class="field"><label for="sv-c">Cost ($)</label><input id="sv-c" type="number" inputmode="decimal"></div></div>
+ ${u?`<div class="field"><label for="sv-m">${u[0].toUpperCase()+u.slice(1)} at service</label><input id="sv-m" type="number" inputmode="numeric" value="${a.meter??''}"></div>`:''}
+ <div class="field"><label for="sv-n">Notes (shop, parts, anything to remember)</label><input id="sv-n"></div>
+ <button class="btn full big go" type="submit">Save</button></form>`)}
+function saveSvc(){const f=$('#svcform'),a=S.fleet.find(x=>x.id===f.dataset.id),m=$('#sv-m')?$('#sv-m').value.trim():'',r={what:$('#sv-w').value,date:$('#sv-d').value,cost:$('#sv-c').value.trim()===''?'':+$('#sv-c').value,meter:m===''?'':+m,notes:$('#sv-n').value.trim()};
+ if(!r.date)return svcForm(a.id,'Pick the date.');
+ close();commit(`${r.what} logged`,()=>{a.service=a.service||[];a.service.push(r);if(r.meter!==''&&(a.meter===''||a.meter==null||r.meter>a.meter))a.meter=r.meter;if(r.what==='Oil change'&&r.meter!=='')a.lastOilAt=r.meter});render()}
 
 /* ---------------- YARD MEASURE ---------------- */
 const FT=0.4; // feet per drawing unit in the sample aerial
@@ -1090,13 +1231,13 @@ function thread(){const c=cust('k1');
 /* ---------------- shell ---------------- */
 function tabs(){return S.role==='owner'?[['home','Home','home'],['sched','Schedule','cal'],['cust','Customers','people'],['msgs','Messages','chat'],['sales','Sales','tag']]:[['today',tr('Today','Hoy'),'list'],['hours',tr('Hours','Horas'),'clock']]}
 function render(){
- const tb=tabs();if(!UI.tab||(!tb.some(x=>x[0]===UI.tab)&&UI.tab!=='job'&&UI.tab!=='thread'&&UI.tab!=='est'&&UI.tab!=='measure'&&UI.tab!=='profile'&&UI.tab!=='team'&&UI.tab!=='person'&&UI.tab!=='route'))UI.tab=tb[0][0];
+ const tb=tabs();if(!UI.tab||(!tb.some(x=>x[0]===UI.tab)&&UI.tab!=='job'&&UI.tab!=='thread'&&UI.tab!=='est'&&UI.tab!=='measure'&&UI.tab!=='profile'&&UI.tab!=='team'&&UI.tab!=='person'&&UI.tab!=='route'&&UI.tab!=='pricing'&&UI.tab!=='fleet'&&UI.tab!=='asset'))UI.tab=tb[0][0];
  $('#as-owner').setAttribute('aria-pressed',S.role==='owner');$('#as-crew').setAttribute('aria-pressed',S.role==='crew');
- const cur=UI.tab==='job'?'today':UI.tab==='thread'?'msgs':UI.tab==='est'?'sales':UI.tab==='measure'?(UI.mback==='est'?'sales':'cust'):UI.tab==='profile'?(UI.pback||'cust'):UI.tab==='team'||UI.tab==='person'?'home':UI.tab==='route'?'sched':UI.tab;
+ const cur=UI.tab==='job'?'today':UI.tab==='thread'?'msgs':UI.tab==='est'?'sales':UI.tab==='measure'?(UI.mback==='est'?'sales':'cust'):UI.tab==='profile'?(UI.pback||'cust'):UI.tab==='team'||UI.tab==='person'?'home':UI.tab==='route'?'sched':UI.tab==='pricing'?'sales':UI.tab==='fleet'||UI.tab==='asset'?'home':UI.tab;
  if(UI.tab==='thread')S.unread=0;
  $('#tabs').innerHTML=tb.map(([v,l,i])=>`<button class="tab" data-a="tab" data-t="${v}" ${v===cur?'aria-current="page"':''} style="position:relative">${ic(i,22)}${l}${v==='msgs'&&S.unread?`<span class="badge" style="position:absolute;top:4px;right:18%">${S.unread}</span>`:''}</button>`).join('');
  $('#fab').hidden=!(S.role==='owner'&&UI.tab==='sched');
- $('#app').innerHTML=({home,sched,cust:custs,today,job:jobView,hours,msgs,thread,sales,est:estBuilder,measure,profile,team,person:personView,route})[UI.tab]();
+ $('#app').innerHTML=({home,sched,cust:custs,today,job:jobView,hours,msgs,thread,sales,est:estBuilder,measure,profile,team,person:personView,route,pricing,fleet,asset:assetView})[UI.tab]();
  if(UI.tab==='measure'&&GM==='ok')setTimeout(mInit,0);
  if(UI.tab==='route'&&GM==='ok')setTimeout(rInit,0);
 }
@@ -1156,7 +1297,14 @@ const A={
  estsheet:d=>estSheet(d.id),
  approve:d=>{const e=S.estimates.find(x=>x.id==d.id),hrs_=e.lines.m3||4,need=Math.min(480,hrs_*60),day_=[1,2,3,4].find(x=>booked('c1',x)+need+15<=540)||5;close();commit(`#${e.id} approved and put on the schedule`,()=>{e.status='approved';const last=crewDay('c1',day_).slice(-1)[0];S.jobs.push({id:'j'+Date.now(),cust:e.cust,crew:'c1',day:day_,service:'Landscape install',price:estTotal(e),est:need,start:last?last.start+last.est+15:450,status:'todo',startedAt:null,doneAt:null,why:'',checks:{},photo:false});S.msgs.push({who:'auto',ch:'Text',t:'Today '+fmtT(now()),kind:'Estimate approved',text:`Thanks ${cust(e.cust).first}! Your ${e.title.toLowerCase()} is on our schedule for ${day_<5?dayName(day_):'next week'}. We'll text you the day before.`})})},
  efilter:d=>{UI.ef=d.t;document.querySelectorAll('.fchip[data-a="efilter"]').forEach(c=>c.setAttribute('aria-pressed',c.dataset.t===d.t));$('#elist').innerHTML=estRows();if(d.t)$('#eq').scrollIntoView({block:'start',behavior:'smooth'})},
- newlead:()=>leadForm(), leadsheet:d=>leadSheet(d.id),
+ newlead:()=>leadForm(),
+ asset:d=>{close();UI.asset=d.id;UI.tab='asset';render();scrollTo(0,0)}, assetform:d=>assetForm(d.id||null), svclog:d=>svcForm(d.id),
+ fkind:d=>{UI.fk=d.t;render()},
+ assetmeter:d=>{const a=S.fleet.find(x=>x.id===d.id),v=$('#as-m').value.trim();if(v===''||!(+v>=0)){toast('Enter a number');return}commit('Updated',()=>{a.meter=+v})},
+ assetretire:d=>{const a=S.fleet.find(x=>x.id===d.id);UI.tab='fleet';commit(`${a.name} removed from the fleet`,()=>{a.retired=new Date().toISOString()})},
+ padd:d=>{PR()[d.k].push(['',0]);save();render()}, prm:d=>{PR()[d.k].splice(+d.i,1);save();render()},
+ preset:()=>{const old=S.price;commit('Sample pricing numbers restored',()=>{S.price=PDEF()});void old},
+ fixprice:d=>{const D=UI.draft,r=priceOf('m3')||65;if(D.mh==null||D.mh==='')D.mh=String(D.lines.m3||0);D.lines.m3=Math.round(((D.lines.m3||0)+(+d.v)/r)*100)/100;render();toast('Labor line raised')}, leadsheet:d=>leadSheet(d.id),
  leadstage:d=>{const c=cust(d.id);commit(d.k==='lead'?'Lead reopened':'Marked contacted',()=>{c.stage=d.k;if(d.k==='lead')c.leadAt=c.leadAt||new Date().toISOString()});leadSheet(d.id)},
  leadtouch:d=>{const c=cust(d.id);if(c.stage==='lead'){c.stage='contacted';save()}},
  leadvisit:d=>{const v=$('#ld-v').value;if(!v){toast('Pick a day and time');return}const c=cust(d.id);commit(`Site visit booked for ${fmtDT(v)}`,()=>{c.stage='visit';c.visitAt=v});if(S.autos.estimate){S.msgs.push({who:'auto',ch:'Text',cust:c.id,t:'Today '+fmtT(now()),kind:'Site visit confirmation',text:`Hi ${c.first||c.name}, you're all set. Hunter from Prime Cut will stop by ${fmtDT(v)} to take a look. Reply here if you need to change the time.`});save()}leadSheet(d.id)},
@@ -1210,9 +1358,10 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
 document.addEventListener('submit',e=>{e.preventDefault();const f=e.target;
  if(f.id==='sendform'){const v=$('#msgin').value.trim();if(!v)return;S.msgs.push({who:'us',ch:'Text',t:'Today '+fmtT(now()),text:v});save();render();scrollTo(0,document.body.scrollHeight);$('#msgin').focus();return}
  if(f.id==='mform'){const sq=Math.round(+$('#m-sq').value),ft=Math.round(+$('#m-ft').value);if(!(sq>0)||!(ft>0)){$('#merr').innerHTML='<div class="err">Enter both numbers from the satellite tool.</div>';return}const c=cust(UI.mcust);UI.tab=UI.mback==='est'?'est':'cust';commit(`Saved ${sq.toLocaleString()} sq ft for ${c.name}`,()=>{delete S.pendingMeasure;c.lawnSqft=sq;c.perimFt=ft});if(UI.mback!=='est')custSheet(c.id);return}
- if(f.id==='jobform')saveJob();if(f.id==='custform')saveCust();if(f.id==='itemform')saveItem();if(f.id==='hireform')saveHire();if(f.id==='docform')saveDoc();if(f.id==='leadform')saveLead({name:$('#ld-n').value.trim(),phone:$('#ld-p').value.trim(),email:$('#ld-e').value.trim(),address:$('#ld-a').value.trim(),source:$('#ld-s').value,want:$('#ld-w').value.trim()});if(f.id==='bypassform'){const pid=f.dataset.id,k=f.dataset.k,r=$('#bp-r').value.trim();if(!r)return bypassSheet(pid,k,'Add a short reason.');const p=person(pid);close();commit('Paper skipped by manager',()=>{p.docBypass=p.docBypass||{};p.docBypass[k]={by:'Hunter',reason:r,at:new Date().toISOString()}});UI.person=pid;UI.tab='person';render()}if(f.id==='letgoform')saveLetGo();
+ if(f.id==='jobform')saveJob();if(f.id==='custform')saveCust();if(f.id==='itemform')saveItem();if(f.id==='hireform')saveHire();if(f.id==='docform')saveDoc();if(f.id==='assetform')saveAsset();if(f.id==='svcform')saveSvc();if(f.id==='leadform')saveLead({name:$('#ld-n').value.trim(),phone:$('#ld-p').value.trim(),email:$('#ld-e').value.trim(),address:$('#ld-a').value.trim(),source:$('#ld-s').value,want:$('#ld-w').value.trim()});if(f.id==='bypassform'){const pid=f.dataset.id,k=f.dataset.k,r=$('#bp-r').value.trim();if(!r)return bypassSheet(pid,k,'Add a short reason.');const p=person(pid);close();commit('Paper skipped by manager',()=>{p.docBypass=p.docBypass||{};p.docBypass[k]={by:'Hunter',reason:r,at:new Date().toISOString()}});UI.person=pid;UI.tab='person';render()}if(f.id==='letgoform')saveLetGo();
  if(f.id==='probform'){const t=$('#pt').value.trim();if(!t){$('#perr').innerHTML=`<div class="err">${tr('Write a few words about what happened.','Escriba unas palabras sobre lo que pasó.')}</div>`;return}
   const kind=f.querySelector('.opt[aria-pressed="true"]').dataset.w,j=job(f.dataset.id);close();commit(tr('Sent. Hunter will see it right away.','Enviado. Hunter lo verá de inmediato.'),()=>S.problems.push({kind,text:t,where:cust(j.cust).address.split(',')[0]}))}});
+document.addEventListener('change',e=>{if(UI.tab==='pricing'&&(e.target.dataset.c==='pset'||e.target.dataset.c==='plist')){setTimeout(()=>{if(UI.tab!=='pricing')return;const y=scrollY,ae=document.activeElement,sel=ae&&ae.dataset&&ae.dataset.c?`[data-c="${ae.dataset.c}"][data-k="${ae.dataset.k}"]${ae.dataset.i!=null?`[data-i="${ae.dataset.i}"][data-f="${ae.dataset.f}"]`:''}`:null;render();scrollTo(0,y);if(sel){const n=document.querySelector(sel);if(n)n.focus()}},0)}});
 document.addEventListener('change',async e=>{const el=e.target,f=el.files?.[0];if(!f)return;
  if(el.dataset.c==='photo'){const j=job(el.dataset.id);try{PHOTO[j.id]=URL.createObjectURL(f)}catch(_){}j.photo=true;save();render();const crew=S.crews.find(c=>c.id===j.crew);await keepPhoto(f,{cust:j.cust,job:j.id,label:j.service+' · after photo',by:crew?crew.name:''})}
  if(el.dataset.c==='idph'){try{const src=await shrink(f);UI.idph[el.dataset.f]=src;const im=$('#dfp-'+el.dataset.f);if(im){im.src=src;im.style.display='';$('#dfl-'+el.dataset.f).style.display='none';im.parentElement.style.minHeight='auto'}}catch(_){toast(tr("That photo couldn't be used",'No se pudo usar esa foto'))}}
@@ -1222,7 +1371,10 @@ document.addEventListener('change',async e=>{const el=e.target,f=el.files?.[0];i
 });
 document.addEventListener('input',e=>{if(e.target.id==='eq'){UI.eq=e.target.value;$('#elist').innerHTML=estRows();return}if(e.target.id==='pq'){UI.pq=e.target.value;UI.pall=false;if(UI.pq&&UI.ptype!=='All'){UI.ptype='All';document.querySelectorAll('.fchip').forEach(c=>c.setAttribute('aria-pressed',c.dataset.t==='All'))}$('#plist').innerHTML=itemRows(catList(),e.target.dataset.mode);return}
  if(e.target.dataset.c==='draft'){if(e.target.value==='__new'){e.target.value=UI.draft.cust;addCust();return}UI.draft[e.target.dataset.k]=e.target.value;if(e.target.dataset.k==='cust')render();return}
- if(e.target.dataset.c==='lineqty'||e.target.dataset.c==='myprice'){const id=e.target.dataset.id,v=parseFloat(e.target.value);if(isNaN(v)||v<0)return;if(e.target.dataset.c==='lineqty')UI.draft.lines[id]=v;else{S.myPrice=S.myPrice||{};S.myPrice[id]=v;save()}const tot=sum(Object.entries(UI.draft.lines).filter(([,n])=>n>0),([i,n])=>priceOf(i)*n);$('#esttot').textContent=money(tot);const lt=document.getElementById('lt-'+id);if(lt)lt.textContent=money(priceOf(id)*(UI.draft.lines[id]||0));return}
+ if(e.target.dataset.c==='lineqty'||e.target.dataset.c==='myprice'){const id=e.target.dataset.id,v=parseFloat(e.target.value);if(isNaN(v)||v<0)return;if(e.target.dataset.c==='lineqty')UI.draft.lines[id]=v;else{S.myPrice=S.myPrice||{};S.myPrice[id]=v;save()}const tot=sum(Object.entries(UI.draft.lines).filter(([,n])=>n>0),([i,n])=>priceOf(i)*n);$('#esttot').textContent=money(tot);const lt=document.getElementById('lt-'+id);if(lt)lt.textContent=money(priceOf(id)*(UI.draft.lines[id]||0));pcRefresh();return}
+ if(e.target.dataset.c==='mh'){UI.draft.mh=e.target.value;pcRefresh();return}
+ if(e.target.dataset.c==='pset'){const k=e.target.dataset.k,v=e.target.value;if(k==='start'||k==='end'){if(/^\d\d-\d\d$/.test(v)){PR()[k]=v;save()}return}const n=parseFloat(v);if(!isNaN(n)&&n>=0){PR()[k]=n;save()}return}
+ if(e.target.dataset.c==='plist'){const r=PR()[e.target.dataset.k][+e.target.dataset.i];r[+e.target.dataset.f]=e.target.dataset.f==='1'?(parseFloat(e.target.value)||0):e.target.value;save();return}
  if(e.target.id==='q'){UI.q=e.target.value;$('#clist').innerHTML=custRows()}
  if(e.target.id==='m-paste'&&e.target.value.trim()){if(!applyPCM(e.target.value,UI.mcust)){e.target.value='';toast("That isn't a measurement. Save the area in the satellite tool first.")}}});
 addEventListener('hashchange',readHashPCM);
