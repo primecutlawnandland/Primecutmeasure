@@ -242,7 +242,7 @@ function seed(){
   people:[{id:'p1',name:'Jake Turner',crew:'c1',inAt:null,me:true,phone:'(859) 555-0147',email:'jake@example.com',role:'Crew lead',pay:22,payType:'hour',start:'2024-03-18',emName:'Maria Turner',emPhone:'(859) 555-0190',docs:{w4:'2024-03-18',i9:'2024-03-18',k4:'2024-03-18',dd:'2024-03-20',license:'2024-03-18',handbook:'2024-03-18'}}],
   week:[505,530,470],problems:[]};
 }
-let S;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}if(!S)S=seed();S.photos=S.photos||[];if(!S.fleet)S.fleet=FSEED();S.estimates.forEach(e=>{if(!e.date&&e.status==='sent'){const m=/(\d+) days? ago/.exec(e.sentAgo||'');e.date=new Date(Date.now()-(m?+m[1]:0)*864e5).toISOString()}});{const h=S.customers.find(c=>c.id==='k1');if(h&&!h.history)h.history=HIST()}
+let S;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}if(!S)S=seed();S.photos=S.photos||[];if(!S.fleet){S.fleet=FSEED();S.lastAudit=new Date(Date.now()-25*864e5).toISOString().slice(0,10)}S.estimates.forEach(e=>{if(!e.date&&e.status==='sent'){const m=/(\d+) days? ago/.exec(e.sentAgo||'');e.date=new Date(Date.now()-(m?+m[1]:0)*864e5).toISOString()}});{const h=S.customers.find(c=>c.id==='k1');if(h&&!h.history)h.history=HIST()}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const UI={pts:[],closed:false,mcust:null,mback:null,pall:false,pq:'',ptype:'All',draft:null,tab:null,job:null,day:0,q:'',locating:false};let PHOTO={};
 const cust=id=>S.customers.find(c=>c.id===id), crew=id=>S.crews.find(c=>c.id===id), job=id=>S.jobs.find(j=>j.id===id);
@@ -262,6 +262,7 @@ function issues(){
  day(0).filter(j=>j.status==='skipped').forEach(j=>out.push({k:'red',i:'x',t:`Skipped ${cust(j.cust).address.split(',')[0]}`,d:j.why,act:{a:'tomorrow',id:j.id,l:'Move to tomorrow'}}));
  day(0).filter(j=>j.status==='now'&&now()-j.startedAt>j.est+5).forEach(j=>out.push({k:'amber',i:'warn',t:`${crew(j.crew).name} is running long`,d:`${hrs(now()-j.startedAt-j.est)} over at ${cust(j.cust).address.split(',')[0]}`}));
  S.problems.forEach(p=>out.push({k:'red',i:'warn',t:p.kind,d:`${p.where}: ${p.text}`}));
+ if((S.fleet||[]).some(a=>!a.retired&&unitOf(a))&&auditDays()>=30)out.push({k:'amber',i:'truck',t:'Monthly fleet audit is due',d:'Type in each odometer and hour meter. Takes about 5 minutes.',act:{a:'audit',id:'',l:'Start audit'}});
  (S.fleet||[]).filter(a=>!a.retired).forEach(a=>fleetDue(a).forEach(x=>out.push({k:x.k,i:'truck',t:`${a.name}: ${x.t}`,d:x.d,act:{a:'asset',id:a.id,l:'Open'}})));
  return out;
 }
@@ -1009,16 +1010,35 @@ function pricing(){const P=PR(),C=calc(),B=bookedSales();
 const FKINDS=[['Truck','miles',5000],['Trailer','',0],['Mower','hours',100],['Equipment','hours',100]];
 const SVCS=['Oil change','Tires','Brakes','Blades sharpened or replaced','Belts','Filters','Repair','Inspection','Other'];
 function FSEED(){const d=n=>new Date(Date.now()+n*864e5).toISOString().slice(0,10);return [
- {id:'f1',kind:'Truck',name:'Truck 1',year:'2019',make:'Ford',model:'F-250',serial:'',plate:'',meter:84200,oilEvery:5000,lastOilAt:80100,regDue:d(12),insCo:'',insPolicy:'',insDue:d(120),warranty:'',pay:650,ins:2400,run:9000,service:[{date:d(-40),what:'Oil change',cost:89,meter:80100,notes:''}]},
- {id:'f2',kind:'Mower',name:'Zero-turn 1',year:'2023',make:'Scag',model:'Turf Tiger II 61"',serial:'',plate:'',meter:612,oilEvery:100,lastOilAt:540,regDue:'',insCo:'',insPolicy:'',insDue:'',warranty:d(24),pay:280,ins:300,run:1500,service:[]}]}
+ {id:'f1',crew:'c1',kind:'Truck',name:'Truck 1',year:'2019',make:'Ford',model:'F-250',serial:'',plate:'',meter:84200,oilEvery:5000,lastOilAt:80100,regDue:d(12),insCo:'',insPolicy:'',insDue:d(120),warranty:'',pay:650,ins:2400,run:9000,service:[{date:d(-40),what:'Oil change',cost:89,meter:80100,notes:''}]},
+ {id:'f2',crew:'c1',kind:'Mower',name:'Zero-turn 1',year:'2023',make:'Scag',model:'Turf Tiger II 61"',serial:'',plate:'',meter:612,oilEvery:100,lastOilAt:540,regDue:'',insCo:'',insPolicy:'',insDue:'',warranty:d(24),pay:280,ins:300,run:1500,service:[]}]}
 const unitOf=a=>(FKINDS.find(k=>k[0]===a.kind)||[])[1]||'';
 const daysTo=iso=>Math.ceil((new Date(iso+'T12:00')-Date.now())/864e5);
+const hasM=a=>a.meter!==''&&a.meter!=null;
+const cur=a=>hasM(a)?Math.round((+a.meter)+(a.auto||0)):'';
+const auditDays=()=>S.lastAudit?Math.floor((Date.now()-new Date(S.lastAudit+'T12:00'))/864e5):999;
+function fleetRun(j){const F=(S.fleet||[]).filter(a=>!a.retired&&a.crew&&a.crew===j.crew);if(!F.length)return;
+ const st=j.startedAt!=null?j.startedAt:j.doneAt-j.est,hrs=Math.max(.25,(j.doneAt-st)/60),leg=+(PR().legMi||6);
+ const prev=S.jobs.filter(x=>x.crew===j.crew&&x.day===j.day&&x.id!==j.id&&x.status==='done'&&x.doneAt<=j.doneAt).sort((x,y)=>y.doneAt-x.doneAt)[0];
+ const a1=prev&&cust(prev.cust)&&cust(prev.cust).geo,a2=cust(j.cust)&&cust(j.cust).geo,mi=(prev?0:leg)+(a1&&a2?hav(a1,a2):leg);
+ F.forEach(a=>{if(!hasM(a))return;const add=a.kind==='Truck'?mi:a.kind==='Mower'?(/mow/i.test(j.service)?hrs:0):a.kind==='Equipment'?hrs*(a.use!=null&&a.use!==''?+a.use:50)/100:0;if(add>0)a.auto=(a.auto||0)+add*(a.factor||1)})}
+function applyReading(a,v){const est=cur(a),base=+a.meter||0,ed=a.auto||0,ad=v-base;
+ if(ed>=20&&ad>0)a.factor=Math.min(2.5,Math.max(.5,(a.factor||1)*(.5+.5*ad/ed)));
+ a.audits=a.audits||[];if(hasM(a))a.audits.push({date:new Date().toISOString().slice(0,10),est,actual:v});a.meter=v;a.auto=0}
+function auditSheet(err=''){const F=(S.fleet||[]).filter(a=>!a.retired&&unitOf(a));
+ sheet(`<form id="auditform" class="stack" novalidate><h2>Monthly fleet audit</h2><div class="sub">Read each odometer or hour meter and type the real number. The app corrects its estimates and gets closer each month.</div>${err?`<div class="err">${err}</div>`:''}
+ <div class="card stack" style="gap:12px">${F.map(a=>`<div class="field"><label for="au-${a.id}">${esc(a.name)} <span class="sub sm">(${unitOf(a)}${hasM(a)?', app estimate '+cur(a).toLocaleString():''})</span></label><input id="au-${a.id}" type="number" inputmode="numeric" data-id="${a.id}" class="au" placeholder="${hasM(a)?cur(a):''}"></div>`).join('')}</div>
+ <button class="btn full big go" type="submit">Save readings</button></form>`)}
+function saveAudit(){const rows=[...document.querySelectorAll('.au')].filter(x=>x.value.trim()!=='');
+ if(!rows.length)return auditSheet('Enter at least one reading.');
+ for(const x of rows){const a=S.fleet.find(y=>y.id===x.dataset.id),v=+x.value;if(!(v>=0))return auditSheet('Use numbers only.');if(hasM(a)&&v<+a.meter)return auditSheet(`${a.name}: the reading can't be lower than the last one (${(+a.meter).toLocaleString()}).`)}
+ const diffs=[];close();commit('Audit saved. Estimates corrected.',()=>{rows.forEach(x=>{const a=S.fleet.find(y=>y.id===x.dataset.id),e=cur(a);applyReading(a,+x.value);if(e!=='')diffs.push(Math.abs(+x.value-e))});S.lastAudit=new Date().toISOString().slice(0,10)})}
 const aYear=a=>(+a.pay||0)*12+(+a.ins||0)+(+a.run||0);
 function fleetYear(){return sum((S.fleet||[]).filter(a=>!a.retired),aYear)}
 function fleetDue(a){const o=[],u=unitOf(a);
  const date=(iso,lbl,soon)=>{if(!iso)return;const n=daysTo(iso);if(n<0)o.push({k:'red',t:`${lbl} overdue`,d:`Was due ${fmtD(iso)}`,w:lbl});else if(n<=soon)o.push({k:'amber',t:`${lbl} in ${n} day${n===1?'':'s'}`,d:fmtD(iso),w:lbl})};
  date(a.regDue,'Tags and registration due',30);date(a.insDue,'Insurance renews',30);
- if(a.oilEvery&&u&&a.meter!=null&&a.lastOilAt!=null&&a.lastOilAt!==''){const left=+a.oilEvery-(+a.meter-+a.lastOilAt);if(left<=0)o.push({k:'red',t:'Oil change overdue',d:`${Math.abs(left).toLocaleString()} ${u} past due`,w:'Oil change'});else if(left<=a.oilEvery*0.1)o.push({k:'amber',t:`Oil change in ${left.toLocaleString()} ${u}`,d:`Every ${(+a.oilEvery).toLocaleString()} ${u}`,w:'Oil change'})}
+ if(a.oilEvery&&u&&hasM(a)&&a.lastOilAt!=null&&a.lastOilAt!==''){const left=Math.round(+a.oilEvery-(cur(a)-+a.lastOilAt));if(left<=0)o.push({k:'red',t:'Oil change overdue',d:`${Math.abs(left).toLocaleString()} ${u} past due`,w:'Oil change'});else if(left<=a.oilEvery*0.1)o.push({k:'amber',t:`Oil change in ${left.toLocaleString()} ${u}`,d:`Every ${(+a.oilEvery).toLocaleString()} ${u}`,w:'Oil change'})}
  if(a.warranty){const n=daysTo(a.warranty);if(n>=0&&n<=60)o.push({k:'amber',t:`Warranty ends in ${n} days`,d:'Get any repairs done while it is covered',w:'Warranty'})}
  return o}
 function fleet(){const F=(S.fleet||[]).filter(a=>!a.retired),k=UI.fk||'All',due=F.flatMap(a=>fleetDue(a).map(x=>({...x,a})));
@@ -1027,7 +1047,9 @@ function fleet(){const F=(S.fleet||[]).filter(a=>!a.retired),k=UI.fk||'All',due=
  <div class="sec" style="margin:0"><h1>Fleet</h1><button class="btn sm dark" data-a="assetform" data-id="">+ Add</button></div>
  ${due.length?`<div class="card">${due.map(x=>`<button class="item" data-a="asset" data-id="${x.a.id}"><div class="ico ${x.k}">${ic('warn',18)}</div><div class="grow"><div class="t">${esc(x.a.name)}: ${x.t}</div><div class="d">${esc(x.d)}</div></div><span class="chev">${ic('chev',16)}</span></button>`).join('')}</div>`:`<div class="sub sm">Nothing due in the next 30 days.</div>`}
  <div class="fchips">${['All','Truck','Trailer','Mower','Equipment'].map(t=>`<button class="fchip" data-a="fkind" data-t="${t}" aria-pressed="${k===t}">${t==='All'||t==='Equipment'?t:t+'s'} <span style="opacity:.7">${F.filter(a=>t==='All'||a.kind===t).length}</span></button>`).join('')}</div>
- <div class="card">${r.length?r.map(a=>{const d=fleetDue(a),u=unitOf(a);return `<button class="item" data-a="asset" data-id="${a.id}"><div class="ico ${d.some(x=>x.k==='red')?'red':d.length?'amber':'green'}">${ic('truck',20)}</div><div class="grow"><div class="t">${esc(a.name)}</div><div class="d">${esc([a.year,a.make,a.model].filter(Boolean).join(' '))}${u&&a.meter!=null&&a.meter!==''?' · '+(+a.meter).toLocaleString()+' '+u:''}</div></div>${d.length?`<span class="chip ${d.some(x=>x.k==='red')?'c-red':'c-amber'}">${d.length} due</span>`:''}<span class="chev">${ic('chev',16)}</span></button>`}).join(''):'<div class="sub sm">Nothing here yet. Tap + Add.</div>'}</div>
+ <div class="card">${r.length?r.map(a=>{const d=fleetDue(a),u=unitOf(a);return `<button class="item" data-a="asset" data-id="${a.id}"><div class="ico ${d.some(x=>x.k==='red')?'red':d.length?'amber':'green'}">${ic('truck',20)}</div><div class="grow"><div class="t">${esc(a.name)}</div><div class="d">${esc([a.year,a.make,a.model].filter(Boolean).join(' '))}${u&&hasM(a)?' · '+(a.auto?'≈ ':'')+cur(a).toLocaleString()+' '+u:''}${a.crew&&crew(a.crew)?' · '+esc(crew(a.crew).name):''}</div></div>${d.length?`<span class="chip ${d.some(x=>x.k==='red')?'c-red':'c-amber'}">${d.length} due</span>`:''}<span class="chev">${ic('chev',16)}</span></button>`}).join(''):'<div class="sub sm">Nothing here yet. Tap + Add.</div>'}</div>
+ <div class="card"><div class="item" style="cursor:default"><div class="ico ${auditDays()>=30?'amber':'green'}">${ic('check',20)}</div><div class="grow"><div class="t">Monthly audit</div><div class="d" style="white-space:normal">${S.lastAudit?'Last done '+fmtD(S.lastAudit)+'. ':''}${auditDays()>=30?'Due now.':'Next one '+fmtD(new Date(new Date(S.lastAudit+'T12:00').getTime()+30*864e5).toISOString())+'.'} Miles and hours add up on their own from each crew's finished jobs in between.</div></div><button class="btn sm ${auditDays()>=30?'go':''}" data-a="audit">Do it now</button></div></div>
+ <div class="card"><div class="item" style="cursor:default;gap:8px"><div class="grow"><div class="t">Average miles between jobs</div><div class="d" style="white-space:normal">Used when an address hasn't been placed on the map yet</div></div><input class="search num" style="width:80px;flex:none;background-image:none;padding:0 10px;min-height:44px" type="number" inputmode="decimal" value="${PR().legMi||6}" data-c="pset" data-k="legMi" aria-label="Average miles between jobs"></div></div>
  <div class="card"><div class="item" style="cursor:default"><div class="grow"><div class="t">Yearly fleet cost</div><div class="d">Payments, insurance, fuel and repairs. Goes into your pricing.</div></div><b class="num">${money(fleetYear())}</b></div></div></div>`}
 function assetView(){const a=(S.fleet||[]).find(x=>x.id===UI.asset);if(!a){UI.tab='fleet';return fleet()}const u=unitOf(a),due=fleetDue(a),dueW=due.map(x=>x.w);
  const st=(lbl,val,w)=>{const x=due.find(y=>y.w===w);return `<div class="item" style="cursor:default"><div class="grow"><div class="d">${lbl}</div><div class="t">${val||'<span class="sub">Not set</span>'}</div></div>${x?`<span class="chip ${x.k==='red'?'c-red':'c-amber'}">${x.k==='red'?'Overdue':'Due soon'}</span>`:val?'<span class="chip c-green">OK</span>':''}</div>`};
@@ -1036,7 +1058,9 @@ function assetView(){const a=(S.fleet||[]).find(x=>x.id===UI.asset);if(!a){UI.ta
  return `<div class="stack"><button class="back" data-a="tab" data-t="fleet">${ic('back',18)} Fleet</button>
  <div class="sec" style="margin:0"><div><div class="sub sm">${esc(a.kind)}</div><h1>${esc(a.name)}</h1></div><button class="btn sm" data-a="assetform" data-id="${a.id}">Edit</button></div>
  <div class="sub">${esc([a.year,a.make,a.model].filter(Boolean).join(' '))}</div>
- ${u?`<div class="card"><div class="item" style="cursor:default;gap:8px"><div class="grow"><div class="d">Current ${u}</div><input id="as-m" class="search num" style="background-image:none;padding:0 10px;min-height:44px" type="number" inputmode="numeric" value="${a.meter??''}"></div><button class="btn dark" data-a="assetmeter" data-id="${a.id}" style="align-self:flex-end">Update</button></div></div>`:''}
+ ${u?`<div class="card"><div class="item" style="cursor:default"><div class="grow"><div class="d">${a.auto?'Estimated':'Current'} ${u}</div><div class="t num" style="font-size:1.4rem">${hasM(a)?cur(a).toLocaleString():'Not set'}</div><div class="d" style="white-space:normal">${hasM(a)?(a.auto?`${(+a.meter).toLocaleString()} at the last real reading + about ${Math.round(a.auto).toLocaleString()} from ${a.crew&&crew(a.crew)?esc(crew(a.crew).name)+"'s":'its'} jobs since`:'From the last real reading'):'Add a reading so it can start counting'}${a.factor&&Math.abs(a.factor-1)>.02?` · estimates adjusted ${a.factor>1?'up':'down'} ${Math.round(Math.abs(a.factor-1)*100)}% from past audits`:''}</div></div></div>
+ <div class="item" style="cursor:default;gap:8px"><input id="as-m" class="search num" style="flex:1;background-image:none;padding:0 10px;min-height:44px" type="number" inputmode="numeric" placeholder="Real reading"><button class="btn dark" data-a="assetmeter" data-id="${a.id}">Save reading</button></div></div>`:''}
+ <div class="card"><div class="item" style="cursor:default"><div class="grow"><div class="d">Assigned to</div><div class="t">${a.crew&&crew(a.crew)?esc(crew(a.crew).name):'Shop / not assigned'}</div></div></div></div>
  <div class="sec"><h2>Due dates</h2></div>
  <div class="card">${a.kind==='Truck'||a.kind==='Trailer'?st('Tags and registration',a.regDue?fmtD(a.regDue):'','Tags and registration due'):''}${st('Insurance renews',a.insDue?fmtD(a.insDue):'','Insurance renews')}${u?st('Oil change',oil,'Oil change'):''}${st('Warranty ends',a.warranty?fmtD(a.warranty):'','Warranty')}</div>
  <div class="sec"><h2>Service records</h2><button class="btn sm go" data-a="svclog" data-id="${a.id}">+ Log service</button></div>
@@ -1052,6 +1076,7 @@ function assetForm(id,err=''){const a=id?(S.fleet||[]).find(x=>x.id===id):{kind:
  sheet(`<form id="assetform" class="stack" novalidate data-id="${id||''}"><h2>${id?'Edit '+esc(a.name):'Add to the fleet'}</h2>${err?`<div class="err">${err}</div>`:''}
  ${two(`<div class="field"><label for="af-kind">Type</label><select id="af-kind">${FKINDS.map(([k])=>`<option ${k===a.kind?'selected':''}>${k}</option>`).join('')}</select></div>`,f('name','Name','text','Example: Truck 2'))}
  ${two(f('year','Year','text'),f('make','Make'))}${f('model','Model')}
+ ${two(`<div class="field"><label for="af-crew">Assigned crew</label><select id="af-crew"><option value="">Shop / not assigned</option>${S.crews.map(c=>`<option value="${c.id}" ${c.id===a.crew?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div>`,f('use','Equipment: % of job time used','number','50'))}
  ${two(f('serial','VIN or serial #'),f('plate','License plate'))}
  <h3 style="margin-top:6px">Due dates</h3>
  ${two(f('regDue','Tags due','date'),f('insDue','Insurance renews','date'))}${f('warranty','Warranty ends','date')}
@@ -1062,24 +1087,24 @@ function assetForm(id,err=''){const a=id?(S.fleet||[]).find(x=>x.id===id):{kind:
  ${two(f('pay','Payment per month ($)','number'),f('ins','Insurance per year ($)','number'))}${f('run','Fuel and repairs per year ($)','number','Your best guess')}
  <button class="btn full big go" type="submit">Save</button></form>`)}
 function saveAsset(){const f=$('#assetform'),id=f.dataset.id,g=k=>$('#af-'+k).value.trim(),v={};
- ['kind','name','year','make','model','serial','plate','regDue','insDue','warranty','insCo','insPolicy'].forEach(k=>v[k]=g(k));
- ['meter','oilEvery','lastOilAt','pay','ins','run'].forEach(k=>{const x=g(k);v[k]=x===''?'':+x});
+ ['kind','name','year','make','model','serial','plate','regDue','insDue','warranty','insCo','insPolicy','crew'].forEach(k=>v[k]=g(k));
+ ['meter','oilEvery','lastOilAt','pay','ins','run','use'].forEach(k=>{const x=g(k);v[k]=x===''?'':+x});
  if(!v.name)return assetForm(id,'Give it a name, like Truck 2 or Zero-turn 1.');
  if(['meter','oilEvery','lastOilAt','pay','ins','run'].some(k=>v[k]!==''&&!(v[k]>=0)))return assetForm(id,'Use numbers only for miles, hours and dollars.');
  close();S.fleet=S.fleet||[];
- if(id){const a=S.fleet.find(x=>x.id===id);commit(`Saved ${v.name}`,()=>Object.assign(a,v))}
+ if(id){const a=S.fleet.find(x=>x.id===id),m0=a.meter;commit(`Saved ${v.name}`,()=>{Object.assign(a,v);if(v.meter!==m0)a.auto=0})}
  else{const nid='f'+Date.now();commit(`${v.name} added to the fleet`,()=>S.fleet.push({id:nid,...v,service:[]}));UI.asset=nid}
  UI.tab='asset';render();scrollTo(0,0)}
 function svcForm(id,err=''){const a=S.fleet.find(x=>x.id===id),u=unitOf(a);
  sheet(`<form id="svcform" class="stack" novalidate data-id="${id}"><h2>Log service</h2>${err?`<div class="err">${err}</div>`:''}
  <div class="field"><label for="sv-w">What was done</label><select id="sv-w">${SVCS.map(x=>`<option>${x}</option>`).join('')}</select></div>
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="field"><label for="sv-d">Date</label><input id="sv-d" type="date" value="${new Date().toISOString().slice(0,10)}"></div><div class="field"><label for="sv-c">Cost ($)</label><input id="sv-c" type="number" inputmode="decimal"></div></div>
- ${u?`<div class="field"><label for="sv-m">${u[0].toUpperCase()+u.slice(1)} at service</label><input id="sv-m" type="number" inputmode="numeric" value="${a.meter??''}"></div>`:''}
+ ${u?`<div class="field"><label for="sv-m">${u[0].toUpperCase()+u.slice(1)} at service</label><input id="sv-m" type="number" inputmode="numeric" value="${hasM(a)?cur(a):''}"></div>`:''}
  <div class="field"><label for="sv-n">Notes (shop, parts, anything to remember)</label><input id="sv-n"></div>
  <button class="btn full big go" type="submit">Save</button></form>`)}
 function saveSvc(){const f=$('#svcform'),a=S.fleet.find(x=>x.id===f.dataset.id),m=$('#sv-m')?$('#sv-m').value.trim():'',r={what:$('#sv-w').value,date:$('#sv-d').value,cost:$('#sv-c').value.trim()===''?'':+$('#sv-c').value,meter:m===''?'':+m,notes:$('#sv-n').value.trim()};
  if(!r.date)return svcForm(a.id,'Pick the date.');
- close();commit(`${r.what} logged`,()=>{a.service=a.service||[];a.service.push(r);if(r.meter!==''&&(a.meter===''||a.meter==null||r.meter>a.meter))a.meter=r.meter;if(r.what==='Oil change'&&r.meter!=='')a.lastOilAt=r.meter});render()}
+ close();commit(`${r.what} logged`,()=>{a.service=a.service||[];a.service.push(r);if(r.meter!==''&&(!hasM(a)||r.meter>=+a.meter))applyReading(a,r.meter);if(r.what==='Oil change'&&r.meter!=='')a.lastOilAt=r.meter});render()}
 
 /* ---------------- YARD MEASURE ---------------- */
 const FT=0.4; // feet per drawing unit in the sample aerial
@@ -1300,7 +1325,8 @@ const A={
  newlead:()=>leadForm(),
  asset:d=>{close();UI.asset=d.id;UI.tab='asset';render();scrollTo(0,0)}, assetform:d=>assetForm(d.id||null), svclog:d=>svcForm(d.id),
  fkind:d=>{UI.fk=d.t;render()},
- assetmeter:d=>{const a=S.fleet.find(x=>x.id===d.id),v=$('#as-m').value.trim();if(v===''||!(+v>=0)){toast('Enter a number');return}commit('Updated',()=>{a.meter=+v})},
+ assetmeter:d=>{const a=S.fleet.find(x=>x.id===d.id),v=$('#as-m').value.trim();if(v===''||!(+v>=0)){toast('Enter a number');return}if(hasM(a)&&+v<+a.meter){toast(`Can't be lower than ${(+a.meter).toLocaleString()}`);return}commit('Reading saved. Estimate corrected.',()=>applyReading(a,+v))},
+ audit:()=>auditSheet(),
  assetretire:d=>{const a=S.fleet.find(x=>x.id===d.id);UI.tab='fleet';commit(`${a.name} removed from the fleet`,()=>{a.retired=new Date().toISOString()})},
  padd:d=>{PR()[d.k].push(['',0]);save();render()}, prm:d=>{PR()[d.k].splice(+d.i,1);save();render()},
  preset:()=>{const old=S.price;commit('Sample pricing numbers restored',()=>{S.price=PDEF()});void old},
@@ -1342,7 +1368,7 @@ const A={
  check:d=>{const j=job(d.id);j.checks[d.k]=!j.checks[d.k];save();render()},
  complete:d=>{const j=job(d.id),need=[...CHECKS.filter(([id])=>!j.checks[id]).map(x=>x[1]),...(j.photo?[]:['Take an after photo'])].map(L);
   if(need.length)return sheet(`<div class="stack"><h2>${tr('Almost there','Ya casi')}</h2><div class="card">${need.map(n=>`<div class="item" style="cursor:default"><div class="ico amber">${ic('warn',18)}</div><div class="grow">${esc(n)}</div></div>`).join('')}</div><button class="btn full big go" data-a="close">${tr('Got it','Entendido')}</button></div>`);
-  commit(tr('Job complete. Nice work.','Trabajo terminado. ¡Buen trabajo!'),()=>{j.status='done';j.doneAt=now();autoSend('done',j)});UI.tab='today';render();
+  commit(tr('Job complete. Nice work.','Trabajo terminado. ¡Buen trabajo!'),()=>{j.status='done';j.doneAt=now();autoSend('done',j);fleetRun(j)});UI.tab='today';render();
   if(S.autos.done)setTimeout(()=>{S.msgs.push({who:'them',ch:'Text',t:'Today '+fmtT(now()),text:'Wow, looks amazing. Thank you!'});S.unread++;save();if($('#sheetwrap').hidden&&document.activeElement?.id!=='msgin')render()},6000)},
  skip:d=>sheet(`<div class="stack"><h2>${tr("Why can't you do it?",'¿Por qué no puede hacerlo?')}</h2><div class="opts">${SKIPS.map(s=>`<button class="opt" data-a="doskip" data-id="${d.id}" data-w="${esc(s)}">${esc(L(s))}</button>`).join('')}</div><button class="btn full" data-a="close">${tr('Go back','Regresar')}</button></div>`),
  doskip:d=>{const j=job(d.id);close();commit(tr('Skipped. The office has been told.','Saltado. Ya se le avisó a la oficina.'),()=>{j.status='skipped';j.why=d.w});UI.tab='today';render()},
@@ -1358,7 +1384,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
 document.addEventListener('submit',e=>{e.preventDefault();const f=e.target;
  if(f.id==='sendform'){const v=$('#msgin').value.trim();if(!v)return;S.msgs.push({who:'us',ch:'Text',t:'Today '+fmtT(now()),text:v});save();render();scrollTo(0,document.body.scrollHeight);$('#msgin').focus();return}
  if(f.id==='mform'){const sq=Math.round(+$('#m-sq').value),ft=Math.round(+$('#m-ft').value);if(!(sq>0)||!(ft>0)){$('#merr').innerHTML='<div class="err">Enter both numbers from the satellite tool.</div>';return}const c=cust(UI.mcust);UI.tab=UI.mback==='est'?'est':'cust';commit(`Saved ${sq.toLocaleString()} sq ft for ${c.name}`,()=>{delete S.pendingMeasure;c.lawnSqft=sq;c.perimFt=ft});if(UI.mback!=='est')custSheet(c.id);return}
- if(f.id==='jobform')saveJob();if(f.id==='custform')saveCust();if(f.id==='itemform')saveItem();if(f.id==='hireform')saveHire();if(f.id==='docform')saveDoc();if(f.id==='assetform')saveAsset();if(f.id==='svcform')saveSvc();if(f.id==='leadform')saveLead({name:$('#ld-n').value.trim(),phone:$('#ld-p').value.trim(),email:$('#ld-e').value.trim(),address:$('#ld-a').value.trim(),source:$('#ld-s').value,want:$('#ld-w').value.trim()});if(f.id==='bypassform'){const pid=f.dataset.id,k=f.dataset.k,r=$('#bp-r').value.trim();if(!r)return bypassSheet(pid,k,'Add a short reason.');const p=person(pid);close();commit('Paper skipped by manager',()=>{p.docBypass=p.docBypass||{};p.docBypass[k]={by:'Hunter',reason:r,at:new Date().toISOString()}});UI.person=pid;UI.tab='person';render()}if(f.id==='letgoform')saveLetGo();
+ if(f.id==='jobform')saveJob();if(f.id==='custform')saveCust();if(f.id==='itemform')saveItem();if(f.id==='hireform')saveHire();if(f.id==='docform')saveDoc();if(f.id==='assetform')saveAsset();if(f.id==='auditform')saveAudit();if(f.id==='svcform')saveSvc();if(f.id==='leadform')saveLead({name:$('#ld-n').value.trim(),phone:$('#ld-p').value.trim(),email:$('#ld-e').value.trim(),address:$('#ld-a').value.trim(),source:$('#ld-s').value,want:$('#ld-w').value.trim()});if(f.id==='bypassform'){const pid=f.dataset.id,k=f.dataset.k,r=$('#bp-r').value.trim();if(!r)return bypassSheet(pid,k,'Add a short reason.');const p=person(pid);close();commit('Paper skipped by manager',()=>{p.docBypass=p.docBypass||{};p.docBypass[k]={by:'Hunter',reason:r,at:new Date().toISOString()}});UI.person=pid;UI.tab='person';render()}if(f.id==='letgoform')saveLetGo();
  if(f.id==='probform'){const t=$('#pt').value.trim();if(!t){$('#perr').innerHTML=`<div class="err">${tr('Write a few words about what happened.','Escriba unas palabras sobre lo que pasó.')}</div>`;return}
   const kind=f.querySelector('.opt[aria-pressed="true"]').dataset.w,j=job(f.dataset.id);close();commit(tr('Sent. Hunter will see it right away.','Enviado. Hunter lo verá de inmediato.'),()=>S.problems.push({kind,text:t,where:cust(j.cust).address.split(',')[0]}))}});
 document.addEventListener('change',e=>{if(UI.tab==='pricing'&&(e.target.dataset.c==='pset'||e.target.dataset.c==='plist')){setTimeout(()=>{if(UI.tab!=='pricing')return;const y=scrollY,ae=document.activeElement,sel=ae&&ae.dataset&&ae.dataset.c?`[data-c="${ae.dataset.c}"][data-k="${ae.dataset.k}"]${ae.dataset.i!=null?`[data-i="${ae.dataset.i}"][data-f="${ae.dataset.f}"]`:''}`:null;render();scrollTo(0,y);if(sel){const n=document.querySelector(sel);if(n)n.focus()}},0)}});
