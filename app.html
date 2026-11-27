@@ -589,11 +589,11 @@ function yardLine(c){return c.lawnSqft?`<div class="item" style="cursor:default"
 function estBuilder(){
  const d=UI.draft,c=cust(d.cust);
  const lines=Object.entries(d.lines).filter(([,n])=>n>0),tot=sum(lines,([id,n])=>priceOf(id)*n);
- return `<div class="stack"><button class="back" data-a="estback">${ic('back',18)} ${UI.eback?esc(c.name):'Sales'}</button><h1>New estimate</h1>
- <div class="field"><label for="e-c">Customer</label><select id="e-c" data-c="draft" data-k="cust">${S.customers.filter(c=>!c.archived).map(c=>`<option value="${c.id}" ${c.id===d.cust?'selected':''}>${esc(c.name)}</option>`).join('')}<option value="__new">+ Add a new customer…</option></select></div>
- <div class="card"><div class="item" style="cursor:default"><div class="av" style="background:var(--mint);color:var(--deep)">${c.name.split(/\s+/).filter(w=>/[A-Za-z]/.test(w)).map(w=>w[0]).slice(0,2).join('')}</div><div class="grow"><div class="t">${esc(c.name)}</div><div class="d" style="white-space:normal">${esc(c.address)}</div></div><button class="btn sm" data-a="editcust" data-id="${c.id}">Edit</button></div>
+ return `<div class="stack"><button class="back" data-a="estback">${ic('back',18)} ${UI.eback&&c?esc(c.name):'Sales'}</button><h1>New estimate</h1>
+ <div class="field"><label for="e-c">Customer</label><select id="e-c" data-c="draft" data-k="cust">${d.cust?'':'<option value="" selected disabled>Pick a customer</option>'}${S.customers.filter(c=>!c.archived).map(c=>`<option value="${c.id}" ${c.id===d.cust?'selected':''}>${esc(c.name)}</option>`).join('')}<option value="__new">+ Add a new customer…</option></select></div>
+ ${c?` <div class="card"><div class="item" style="cursor:default"><div class="av" style="background:var(--mint);color:var(--deep)">${c.name.split(/\s+/).filter(w=>/[A-Za-z]/.test(w)).map(w=>w[0]).slice(0,2).join('')}</div><div class="grow"><div class="t">${esc(c.name)}</div><div class="d" style="white-space:normal">${esc(c.address)}</div></div><button class="btn sm" data-a="editcust" data-id="${c.id}">Edit</button></div>
  <div class="item" style="cursor:default;gap:8px"><a class="btn sm" style="flex:1;text-decoration:none;display:flex;align-items:center;justify-content:center" href="tel:${normP(c.phone)}">Call</a><a class="btn sm" style="flex:1;text-decoration:none;display:flex;align-items:center;justify-content:center" href="sms:${normP(c.phone)}">Text</a>${c.email?`<a class="btn sm" style="flex:1;text-decoration:none;display:flex;align-items:center;justify-content:center" href="mailto:${esc(c.email)}">Email</a>`:''}<button class="btn sm" style="flex:1" data-a="profopen" data-id="${c.id}">Profile</button></div>
- ${yardLine(c)}</div>
+ ${yardLine(c)}</div>`:''}
  <div class="field"><label for="e-t">What's the project?</label><input id="e-t" data-c="draft" data-k="title" value="${esc(d.title)}" placeholder="Example: Front bed makeover"></div>
  <div class="sec"><h2>On this estimate</h2></div>
  <div class="card">${lines.length?lines.map(([id,n])=>{const it=plant(id);return `<div class="item" style="cursor:default;flex-wrap:wrap"><div class="grow" style="min-width:60%"><div class="t" style="white-space:normal">${esc(it.name)}</div><div class="d">${esc(it.size)}${it.svc?' · natl avg '+pm(it.low)+' to '+pm(it.high):''}</div></div><b class="num" id="lt-${id}">${money(priceOf(id)*n)}</b>
@@ -735,10 +735,10 @@ function render(){
 }
 const A={
  as:d=>{S.role=d.r;save();UI.tab=null;render();scrollTo(0,0)},
- newest:()=>{UI.eback=null;UI.draft={cust:UI.draft?.cust||'k1',title:'',lines:{}};UI.tab='est';render();scrollTo(0,0)},
+ newest:()=>{UI.eback=null;UI.draft={cust:'',title:'',lines:{}};UI.tab='est';render();scrollTo(0,0)},
  ptype:d=>{UI.ptype=d.t;UI.pall=false;const y=scrollY;render();scrollTo(0,y)},
  pall:()=>{UI.pall=true;const y=scrollY;render();scrollTo(0,y)},
- additem:d=>{if(UI.tab!=='est'){UI.draft={cust:UI.draft?.cust||'k1',title:'',lines:{}};UI.tab='est'}const L=UI.draft.lines,it=plant(d.id);if(L[d.id]){toast(it.name+' is already on the estimate');return}L[d.id]=autoQty(it,cust(UI.draft.cust));render();scrollTo(0,0);toast(it.m&&L[d.id]>1?`Added ${it.name}. Quantity set from the yard measurement.`:`Added ${it.name}`)},
+ additem:d=>{if(UI.tab!=='est'){UI.draft={cust:'',title:'',lines:{}};UI.tab='est'}const L=UI.draft.lines,it=plant(d.id);if(L[d.id]){toast(it.name+' is already on the estimate');return}L[d.id]=autoQty(it,cust(UI.draft.cust));render();scrollTo(0,0);toast(it.m&&L[d.id]>1?`Added ${it.name}. Quantity set from the yard measurement.`:`Added ${it.name}`)},
  rmline:d=>{delete UI.draft.lines[d.id];const y=scrollY;render();scrollTo(0,y)},
  measure:d=>{MS.cust=null;UI.mcust=d.id;UI.mback=UI.tab==='est'?'est':'cust';UI.pts=[];UI.closed=false;close();UI.tab='measure';render();scrollTo(0,0)},
  mback:()=>{delete S.pendingMeasure;save();if(UI.mback==='est'){UI.tab='est';render()}else custSheet(UI.mcust)},
@@ -766,6 +766,7 @@ const A={
  mexample:()=>{UI.pts=EXAMPLE.map(x=>x.slice());UI.closed=true;render()},
  msave:()=>{const c=cust(UI.mcust),a=Math.round(polyArea(UI.pts)),pr=Math.round(polyPerim(UI.pts,true));UI.tab=UI.mback==='est'?'est':'cust';commit(`Saved ${a.toLocaleString()} sq ft for ${c.name}`,()=>{c.lawnSqft=a;c.perimFt=pr});if(UI.mback!=='est')custSheet(c.id)},
  sendest:()=>{const d=UI.draft,n=Object.values(d.lines).filter(x=>x>0).length;
+  if(!d.cust||!cust(d.cust))return sheet(`<div class="stack"><h2>Pick a customer</h2><div class="sub">Choose who this estimate is for, or add a new customer.</div><button class="btn full big go" data-a="close">OK</button></div>`);
   if(!d.title.trim())return sheet(`<div class="stack"><h2>Name the project</h2><div class="sub">Give it a short name, like "Front bed makeover", so the customer knows what it's for.</div><button class="btn full big go" data-a="close">OK</button></div>`);
   if(!n)return sheet(`<div class="stack"><h2>Add something first</h2><div class="sub">Add at least one plant, material or labor line.</div><button class="btn full big go" data-a="close">OK</button></div>`);
   const id=Math.max(...S.estimates.map(e=>e.id))+1,c=cust(d.cust),lines={};Object.entries(d.lines).forEach(([k,v])=>{if(v>0)lines[k]=v});
