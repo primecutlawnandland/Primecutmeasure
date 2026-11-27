@@ -200,7 +200,7 @@ const I={
  home:'<path d="M3 11 12 4l9 7v8a2 2 0 0 1-2 2h-4v-6H9v6H5a2 2 0 0 1-2-2z"/>',people:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16 14.6c2.7.2 4.7 1.9 5.4 5.4"/>',
  list:'<path d="M9 6h12M9 12h12M9 18h12"/><circle cx="4" cy="6" r="1.3"/><circle cx="4" cy="12" r="1.3"/><circle cx="4" cy="18" r="1.3"/>',
  pin:'<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',cam:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
- check:'<path d="m5 12 5 5 9-10"/>',doc:'<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/>',chev:'<path d="m9 6 6 6-6 6"/>',back:'<path d="m15 5-7 7 7 7"/>',phone:'<path d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 5a2 2 0 0 1 2-2z"/>',
+ check:'<path d="m5 12 5 5 9-10"/>',doc:'<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/>',link:'<path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>',chev:'<path d="m9 6 6 6-6 6"/>',back:'<path d="m15 5-7 7 7 7"/>',phone:'<path d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 5a2 2 0 0 1 2-2z"/>',
  truck:'<path d="M2 6h11v10H2zM13 10h5l3 3v3h-8z"/><circle cx="6" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>'
 };
 const ic=(n,s=22,w=2)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
@@ -239,7 +239,7 @@ function seed(){
   estimates:[{id:1042,cust:'k1',title:'Front bed planting',status:'approved',lines:{p12:5,p9:3,p16:10,p15:10,m1:4,m2:60,m3:6}},
    {id:1043,cust:'k1',title:'Backyard privacy screen',status:'sent',sentAgo:'4 days ago',date:new Date(Date.now()-4*864e5).toISOString(),lines:{p7:8,m1:3,m3:5}}],
   crews:[{id:'c1',name:'Crew 1',lead:'Jake',color:'#4ABC39'}],
-  people:[{id:'p1',name:'Jake Turner',crew:'c1',inAt:null,me:true}],
+  people:[{id:'p1',name:'Jake Turner',crew:'c1',inAt:null,me:true,phone:'(859) 555-0147',email:'jake@example.com',role:'Crew lead',pay:22,payType:'hour',start:'2024-03-18',emName:'Maria Turner',emPhone:'(859) 555-0190',docs:{w4:'2024-03-18',i9:'2024-03-18',k4:'2024-03-18',dd:'2024-03-20',license:'2024-03-18'}}],
   week:[505,530,470],problems:[]};
 }
 let S;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}if(!S)S=seed();S.photos=S.photos||[];S.estimates.forEach(e=>{if(!e.date&&e.status==='sent'){const m=/(\d+) days? ago/.exec(e.sentAgo||'');e.date=new Date(Date.now()-(m?+m[1]:0)*864e5).toISOString()}});{const h=S.customers.find(c=>c.id==='k1');if(h&&!h.history)h.history=HIST()}
@@ -257,8 +257,8 @@ function crewInfo(c){const js=crewDay(c,0),t=now();const cur=js.find(j=>j.status
 
 function issues(){
  const out=[];
- S.people.filter(p=>p.inAt==null&&!p.off).forEach(p=>out.push({k:'red',i:'clock',t:`${p.name} hasn't clocked in`,d:`${crew(p.crew).name} started at 7:00 am`}));
- S.people.filter(p=>p.inAt>SHIFT+10).forEach(p=>out.push({k:'amber',i:'clock',t:`${p.name} was ${hrs(p.inAt-SHIFT)} late`,d:`Clocked in at ${fmtT(p.inAt)}`}));
+ S.people.filter(p=>p.inAt==null&&!p.off&&!p.gone&&p.crew).forEach(p=>out.push({k:'red',i:'clock',t:`${p.name} hasn't clocked in`,d:`${crew(p.crew).name} started at 7:00 am`}));
+ S.people.filter(p=>p.inAt>SHIFT+10&&!p.gone&&p.crew).forEach(p=>out.push({k:'amber',i:'clock',t:`${p.name} was ${hrs(p.inAt-SHIFT)} late`,d:`Clocked in at ${fmtT(p.inAt)}`}));
  day(0).filter(j=>j.status==='skipped').forEach(j=>out.push({k:'red',i:'x',t:`Skipped ${cust(j.cust).address.split(',')[0]}`,d:j.why,act:{a:'tomorrow',id:j.id,l:'Move to tomorrow'}}));
  day(0).filter(j=>j.status==='now'&&now()-j.startedAt>j.est+5).forEach(j=>out.push({k:'amber',i:'warn',t:`${crew(j.crew).name} is running long`,d:`${hrs(now()-j.startedAt-j.est)} over at ${cust(j.cust).address.split(',')[0]}`}));
  S.problems.forEach(p=>out.push({k:'red',i:'warn',t:p.kind,d:`${p.where}: ${p.text}`}));
@@ -277,7 +277,7 @@ function confirmIt(title,body,ok,fn,danger){okFn=fn;sheet(`<div class="stack"><h
 function home(){
  const T=day(0),t=now(),live=T.filter(j=>j.status!=='skipped');
  const sched=sum(live,'price'),earned=sum(T.filter(j=>j.status==='done'),'price');
- const done=T.filter(j=>j.status==='done').length,onClock=S.people.filter(p=>p.inAt!=null&&p.outAt==null).length,crewTotal=S.people.filter(p=>!p.off).length;
+ const done=T.filter(j=>j.status==='done').length,onClock=S.people.filter(p=>p.inAt!=null&&p.outAt==null).length,crewTotal=S.people.filter(p=>!p.off&&!p.gone).length;
  const iss=issues();
  const hi=t<720?'Good morning':'Good afternoon';
  return `<div class="stack">
@@ -289,16 +289,65 @@ function home(){
   <button class="stat ${iss.length?'alert':''}" data-a="scrollTo" data-id="needs"><b class="num">${iss.length}</b><span>Need you</span></button>
  </div>
  ${iss.length?`<div class="sec" id="needs"><h2>Needs you</h2></div><div class="card">${iss.slice(0,4).map(x=>`<div class="item" style="cursor:default"><div class="ico ${x.k}">${ic(x.i,20)}</div><div class="grow"><div class="t">${esc(x.t)}</div><div class="d">${esc(x.d)}</div>${x.act?`<button class="btn sm dark" style="margin-top:8px" data-a="${x.act.a}" data-id="${x.act.id}">${x.act.l}</button>`:''}</div></div>`).join('')}</div>`:`<div class="card sub" id="needs">All clear. Nothing needs you right now.</div>`}
- <div class="sec"><h2>Crews</h2><button class="link" data-a="tab" data-t="sched">Schedule</button></div>
+ <div class="sec"><h2>Crews</h2><span><button class="link" data-a="tab" data-t="team">Team</button> · <button class="link" data-a="tab" data-t="sched">Schedule</button></span></div>
  <div class="card">${S.crews.map(c=>{const s=crewInfo(c.id);return `<button class="item" data-a="crewsheet" data-id="${c.id}"><div class="av" style="background:${c.color}">${c.name.slice(-1)}</div><div class="grow"><div class="t">${c.name} <span class="sub" style="font-weight:500">· ${c.lead}</span></div><div class="d">${s.cur?'At '+esc(cust(s.cur.cust).address.split(',')[0]):'Between stops'} · done by ${fmtT(s.finish)}</div><div class="mini">${s.js.map(j=>`<i style="flex:1;background:${j.status==='done'?'var(--green)':j.status==='now'?'#A6DE9C':j.status==='skipped'?'var(--red)':'transparent'}"></i>`).join('')}</div></div><span class="chip ${s.behind?'c-amber':'c-green'}">${s.behind?'Behind':'On pace'}</span></button>`}).join('')}</div>
  </div>`;
 }
 function crewSheet(id){const c=crew(id),s=crewInfo(id);
  sheet(`<div class="stack"><h2>${c.name} · ${c.lead}</h2>
- <div class="card">${S.people.filter(p=>p.crew===id).map(p=>{const st=p.off?['c-blue','Off today']:p.inAt==null?['c-red','Not clocked in']:p.inAt>SHIFT+10?['c-amber','Late · '+fmtT(p.inAt)]:['c-green','In · '+fmtT(p.inAt)];return `<div class="item" style="cursor:default"><div class="grow"><div class="t">${esc(p.name)}</div></div><span class="chip ${st[0]}">${st[1]}</span></div>`}).join('')}</div>
+ <div class="card">${S.people.filter(p=>p.crew===id&&!p.gone).map(p=>{const st=p.off?['c-blue','Off today']:p.inAt==null?['c-red','Not clocked in']:p.inAt>SHIFT+10?['c-amber','Late · '+fmtT(p.inAt)]:['c-green','In · '+fmtT(p.inAt)];return `<div class="item" style="cursor:default"><div class="grow"><div class="t">${esc(p.name)}</div></div><span class="chip ${st[0]}">${st[1]}</span></div>`}).join('')}</div>
  <div class="card">${s.js.map(j=>`<div class="item" style="cursor:default"><div class="grow"><div class="t">${esc(cust(j.cust).address.split(',')[0])}</div><div class="d">${esc(j.service)}</div></div>${pill(j)}</div>`).join('')}</div>
  <button class="btn full" data-a="close">Close</button></div>`)}
 const pill=j=>({done:'<span class="chip c-green">Done</span>',now:'<span class="chip c-blue">Working</span>',skipped:'<span class="chip c-red">Skipped</span>',todo:'<span class="chip c-gray">'+fmtT(j.start)+'</span>'}[j.status]);
+
+const DOCS=[['w4','Federal W-4','Tax withholding'],['k4','Kentucky K-4','State tax withholding'],['i9','I-9 and ID','Proof they can work in the US'],['dd','Direct deposit form','Bank details for payroll'],['license',"Driver's license",'Needed to drive company trucks'],['handbook','Handbook and safety sign-off','Rules, equipment safety, PPE']];
+const ROLES=['Crew member','Crew lead','Office'];
+const person=id=>S.people.find(p=>p.id===id);
+const docCount=p=>DOCS.filter(([k])=>(p.docs||{})[k]).length;
+function team(){const act=S.people.filter(p=>!p.gone),old=S.people.filter(p=>p.gone);
+ const row=p=>`<button class="item" data-a="person" data-id="${p.id}"><div class="av" style="background:${p.gone?'#9AA59D':(S.crews.find(c=>c.id===p.crew)||{}).color||'#4ABC39'}">${esc(p.name.split(' ').map(w=>w[0]).join('').slice(0,2))}</div><div class="grow"><div class="t">${esc(p.name)}</div><div class="d">${p.gone?'Last day '+fmtD(p.endDate):esc(p.role||'Crew member')+(p.crew?' · '+esc(crew(p.crew).name):'')}</div></div>${p.gone?'':`<span class="chip ${docCount(p)===DOCS.length?'c-green':'c-amber'}">${docCount(p)}/${DOCS.length} papers</span>`}<span class="chev">${ic('chev',18)}</span></button>`;
+ return `<div class="stack"><button class="back" data-a="tab" data-t="home">${ic('back',18)} Home</button>
+ <div class="sec" style="margin:0"><h1>Team</h1><button class="btn sm go" data-a="hire">+ Hire someone</button></div>
+ <div class="card">${act.length?act.map(row).join(''):'<div class="sub sm">No one on the team yet.</div>'}</div>
+ ${qbCard()}
+ ${old.length?`<div class="sec"><h2>Past employees</h2></div><div class="card">${old.map(row).join('')}</div>`:''}
+ <div class="sub sm">This preview holds sample info only. Real Social Security numbers, IDs and bank details should only go in once the app is on secure hosting with logins.</div></div>`}
+function qbCard(){return `<div class="card"><div class="item" style="cursor:default"><div class="ico ${S.qbo?'green':'blue'}">${ic('link',20)}</div><div class="grow"><div class="t">QuickBooks ${S.qbo?'connected':'not connected yet'}</div><div class="d" style="white-space:normal">${S.qbo?'New hires, pay rates, hours and last days sync to QuickBooks Payroll.':'When connected, new hires, pay rates, weekly hours and last days go to QuickBooks Payroll on their own.'}</div></div><button class="btn sm ${S.qbo?'':'dark'}" data-a="qbo">${S.qbo?'Details':'Connect'}</button></div></div>`}
+function personView(){const p=person(UI.person);if(!p){UI.tab='team';return team()}
+ const f=(l,v)=>v?`<div class="item" style="cursor:default"><div class="grow"><div class="d">${l}</div><div class="t" style="white-space:normal">${v}</div></div></div>`:'';
+ return `<div class="stack"><button class="back" data-a="tab" data-t="team">${ic('back',18)} Team</button>
+ <div style="display:flex;gap:12px;align-items:flex-start"><div class="grow"><h1>${esc(p.name)}</h1><div class="sub">${p.gone?'Past employee · last day '+fmtD(p.endDate):esc(p.role||'Crew member')+(p.crew?' · '+esc(crew(p.crew).name):'')}</div></div><button class="btn sm" data-a="hire" data-id="${p.id}">Edit</button></div>
+ <div class="card">${f('Phone',esc(p.phone||''))}${f('Email',esc(p.email||''))}${f('Pay',p.pay?`${money(p.pay)} ${p.payType==='year'?'per year':'per hour'}`:'')}${f('Start date',p.start?fmtD(p.start):'')}${f('Emergency contact',p.emName?esc(p.emName)+(p.emPhone?' · '+esc(p.emPhone):''):'')}</div>
+ <div class="sec"><h2>Hiring papers</h2><span class="sub sm">${docCount(p)}/${DOCS.length} on file</span></div>
+ <div class="card">${DOCS.map(([k,l,d])=>{const on=(p.docs||{})[k];return `<label class="item" style="cursor:pointer;position:relative"><div class="ico ${on?'green':'amber'}">${ic(on?'check':'doc',18)}</div><div class="grow"><div class="t">${l}</div><div class="d">${on?'On file · '+fmtD(on)+((p.docNames||{})[k]?' · '+esc(p.docNames[k]):''):d}</div></div><span class="link">${on?'Replace':'Add'}</span><input type="file" accept="image/*,.pdf" data-c="pdoc" data-id="${p.id}" data-k="${k}" style="position:absolute;inset:0;opacity:0" aria-label="Add ${l}"></label>`}).join('')}</div>
+ ${p.gone?`<div class="card">${f('Reason',esc(p.endReason||''))}${f('Notes',esc(p.endNotes||''))}${f('Offboarding',(p.offboard||[]).map(esc).join(', '))}</div><button class="btn full" data-a="rehire" data-id="${p.id}">Rehire ${esc(p.name.split(' ')[0])}</button>`
+ :`<button class="btn full redb" data-a="letgo" data-id="${p.id}">Let ${esc(p.name.split(' ')[0])} go</button>`}
+ </div>`}
+function hireForm(id,err=''){const p=id?person(id):{role:'Crew member',crew:S.crews[0].id,payType:'hour',start:new Date().toISOString().slice(0,10)};
+ sheet(`<form id="hireform" class="stack" novalidate data-id="${id||''}"><h2>${id?'Edit '+esc(p.name):'Hire someone'}</h2>${err?`<div class="err">${err}</div>`:''}
+ <div class="field"><label for="h-n">Full name</label><input id="h-n" value="${esc(p.name||'')}" autocomplete="off"></div>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="field"><label for="h-p">Phone</label><input id="h-p" type="tel" value="${esc(p.phone||'')}"></div><div class="field"><label for="h-e">Email</label><input id="h-e" type="email" value="${esc(p.email||'')}"></div></div>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="field"><label for="h-r">Role</label><select id="h-r">${ROLES.map(r=>`<option ${r===p.role?'selected':''}>${r}</option>`).join('')}</select></div><div class="field"><label for="h-c">Crew</label><select id="h-c">${S.crews.map(c=>`<option value="${c.id}" ${c.id===p.crew?'selected':''}>${esc(c.name)}</option>`).join('')}<option value="" ${!p.crew?'selected':''}>No crew</option></select></div></div>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="field"><label for="h-pay">Pay ($)</label><input id="h-pay" type="number" inputmode="decimal" min="0" step="0.25" value="${p.pay||''}"></div><div class="field"><label for="h-pt">Paid</label><select id="h-pt"><option value="hour" ${p.payType!=='year'?'selected':''}>Per hour</option><option value="year" ${p.payType==='year'?'selected':''}>Salary per year</option></select></div></div>
+ <div class="field"><label for="h-s">Start date</label><input id="h-s" type="date" value="${esc((p.start||'').slice(0,10))}"></div>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="field"><label for="h-en">Emergency contact</label><input id="h-en" value="${esc(p.emName||'')}"></div><div class="field"><label for="h-ep">Their phone</label><input id="h-ep" type="tel" value="${esc(p.emPhone||'')}"></div></div>
+ <button class="btn full big go" type="submit">${id?'Save':'Add to team'}</button><button class="btn full" type="button" data-a="close">Cancel</button></form>`)}
+function saveHire(){const f=$('#hireform'),id=f.dataset.id,v={name:$('#h-n').value.trim(),phone:$('#h-p').value.trim(),email:$('#h-e').value.trim(),role:$('#h-r').value,crew:$('#h-c').value||null,pay:parseFloat($('#h-pay').value)||0,payType:$('#h-pt').value,start:$('#h-s').value,emName:$('#h-en').value.trim(),emPhone:$('#h-ep').value.trim()};
+ if(!v.name)return hireForm(id,'Enter their full name.');if(!v.phone||normP(v.phone).length!==10)return hireForm(id,'Enter a 10-digit phone number.');
+ close();if(id){commit(`Saved ${v.name}`,()=>Object.assign(person(id),v));return}
+ const nid='p'+Date.now();commit(`${v.name} added to the team`,()=>{S.people.push({id:nid,...v,inAt:null,docs:{}});if(S.qbo)S.qboLog=(S.qboLog||[]).concat([`New hire ${v.name} sent to QuickBooks`])});UI.person=nid;UI.tab='person';render();scrollTo(0,0)}
+function letGo(id,err=''){const p=person(id),first=p.name.split(' ')[0];
+ const steps=['Final paycheck scheduled','Keys, uniform and equipment returned','App login turned off','Removed from the crew schedule',S.qbo?'Marked inactive in QuickBooks':'Mark inactive in QuickBooks'];
+ sheet(`<form id="letgoform" class="stack" novalidate data-id="${id}"><h2>Let ${esc(first)} go</h2>${err?`<div class="err">${err}</div>`:''}
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="field"><label for="l-d">Last day</label><input id="l-d" type="date" value="${new Date().toISOString().slice(0,10)}"></div><div class="field"><label for="l-r">Reason</label><select id="l-r"><option value="">Pick one</option><option>Quit</option><option>Let go</option><option>End of season</option><option>Other</option></select></div></div>
+ <div class="field"><label for="l-n">Notes (only you see these)</label><textarea id="l-n" rows="3" placeholder="What happened, eligible to rehire?"></textarea></div>
+ <div class="sub sm">Before you finish</div>
+ <div class="card">${steps.map((x,i)=>`<label class="check" style="cursor:pointer"><input type="checkbox" class="lg-step" value="${esc(x)}" ${i>=2?'checked':''} style="width:22px;height:22px;accent-color:#29853A"> ${esc(x)}</label>`).join('')}</div>
+ <button class="btn full big redb" type="submit">Confirm ${esc(first)}'s last day</button><button class="btn full" type="button" data-a="person" data-id="${id}">Cancel</button></form>`)}
+function saveLetGo(){const f=$('#letgoform'),id=f.dataset.id,p=person(id),d=$('#l-d').value,r=$('#l-r').value;
+ if(!d)return letGo(id,'Pick their last day.');if(!r)return letGo(id,'Pick a reason.');
+ const done=[...document.querySelectorAll('.lg-step:checked')].map(x=>x.value),notes=$('#l-n').value.trim();close();
+ commit(`${p.name} moved to past employees`,()=>{Object.assign(p,{gone:true,endDate:d,endReason:r,endNotes:notes,offboard:done,crew:null,inAt:null,off:false});if(S.qbo)S.qboLog=(S.qboLog||[]).concat([`${p.name} marked inactive in QuickBooks`])})}
 
 function sched(){
  const d=UI.day;
@@ -812,13 +861,13 @@ function thread(){const c=cust('k1');
 /* ---------------- shell ---------------- */
 function tabs(){return S.role==='owner'?[['home','Home','home'],['sched','Schedule','cal'],['cust','Customers','people'],['msgs','Messages','chat'],['sales','Sales','tag']]:[['today',tr('Today','Hoy'),'list'],['hours',tr('Hours','Horas'),'clock']]}
 function render(){
- const tb=tabs();if(!UI.tab||(!tb.some(x=>x[0]===UI.tab)&&UI.tab!=='job'&&UI.tab!=='thread'&&UI.tab!=='est'&&UI.tab!=='measure'&&UI.tab!=='profile'))UI.tab=tb[0][0];
+ const tb=tabs();if(!UI.tab||(!tb.some(x=>x[0]===UI.tab)&&UI.tab!=='job'&&UI.tab!=='thread'&&UI.tab!=='est'&&UI.tab!=='measure'&&UI.tab!=='profile'&&UI.tab!=='team'&&UI.tab!=='person'))UI.tab=tb[0][0];
  $('#as-owner').setAttribute('aria-pressed',S.role==='owner');$('#as-crew').setAttribute('aria-pressed',S.role==='crew');
- const cur=UI.tab==='job'?'today':UI.tab==='thread'?'msgs':UI.tab==='est'?'sales':UI.tab==='measure'?(UI.mback==='est'?'sales':'cust'):UI.tab==='profile'?(UI.pback||'cust'):UI.tab;
+ const cur=UI.tab==='job'?'today':UI.tab==='thread'?'msgs':UI.tab==='est'?'sales':UI.tab==='measure'?(UI.mback==='est'?'sales':'cust'):UI.tab==='profile'?(UI.pback||'cust'):UI.tab==='team'||UI.tab==='person'?'home':UI.tab;
  if(UI.tab==='thread')S.unread=0;
  $('#tabs').innerHTML=tb.map(([v,l,i])=>`<button class="tab" data-a="tab" data-t="${v}" ${v===cur?'aria-current="page"':''} style="position:relative">${ic(i,22)}${l}${v==='msgs'&&S.unread?`<span class="badge" style="position:absolute;top:4px;right:18%">${S.unread}</span>`:''}</button>`).join('');
  $('#fab').hidden=!(S.role==='owner'&&UI.tab==='sched');
- $('#app').innerHTML=({home,sched,cust:custs,today,job:jobView,hours,msgs,thread,sales,est:estBuilder,measure,profile})[UI.tab]();
+ $('#app').innerHTML=({home,sched,cust:custs,today,job:jobView,hours,msgs,thread,sales,est:estBuilder,measure,profile,team,person:personView})[UI.tab]();
  if(UI.tab==='measure'&&GM==='ok')setTimeout(mInit,0);
 }
 const A={
@@ -833,6 +882,11 @@ const A={
  pback:()=>{UI.tab=UI.pback||'cust';render();scrollTo(0,0)},
  profest:d=>{UI.draft={cust:d.id,title:'',lines:{}};UI.eback=d.id;UI.tab='est';render();scrollTo(0,0)},
  photoview:d=>photoView(d.id),
+ person:d=>{close();UI.person=d.id;UI.tab='person';render();scrollTo(0,0)},
+ hire:d=>hireForm(d.id||null), letgo:d=>letGo(d.id),
+ rehire:d=>{const p=person(d.id);commit(`${p.name} is back on the team`,()=>{p.gone=false;p.crew=S.crews[0].id;p.start=new Date().toISOString().slice(0,10);delete p.endDate})},
+ qbo:()=>sheet(`<div class="stack"><h2>QuickBooks</h2><div class="sub">Once connected to the client's QuickBooks Online account, Prime Cut sends these on its own:</div><div class="card">${['New hires, with pay rate and start date','Weekly hours from crew clock-in','Last days, marked inactive','Invoices and payments (Phase 4)'].map(x=>`<div class="item" style="cursor:default"><div class="ico green">${ic('check',16)}</div><div class="grow">${x}</div></div>`).join('')}</div>${(S.qboLog||[]).length?`<div class="sub sm">Recent</div><div class="card">${S.qboLog.slice(-5).reverse().map(x=>`<div class="item" style="cursor:default"><div class="grow d">${esc(x)}</div></div>`).join('')}</div>`:''}<div class="sub sm">Connecting needs the app on secure hosting with logins, under the client's own QuickBooks account. This preview shows how it will work.</div><button class="btn full ${S.qbo?'':'go'}" data-a="qbotoggle">${S.qbo?'Disconnect (preview)':'Turn on in preview'}</button><button class="btn full" data-a="close">Close</button></div>`),
+ qbotoggle:()=>{S.qbo=!S.qbo;save();close();render();toast(S.qbo?'QuickBooks on (preview only)':'QuickBooks off')},
  pdfsave:async d=>{try{const {doc,name}=await estPDF(d.id);doc.save(name);toast('PDF downloaded')}catch(e){toast("The PDF couldn't be made. Check your connection and try again.")}},
  pdfview:async d=>{const w=window.open('','_blank');try{const {doc,name}=await estPDF(d.id);const u=URL.createObjectURL(doc.output('blob'));if(w){w.location.href=u}else{const a=document.createElement('a');a.href=u;a.target='_blank';a.rel='noopener';document.body.appendChild(a);a.click();a.remove()}}catch(e){if(w)w.close();toast("The PDF couldn't be made. Check your connection and try again.")}},
  edititem:d=>editItem(d.id||null),
@@ -914,11 +968,12 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
 document.addEventListener('submit',e=>{e.preventDefault();const f=e.target;
  if(f.id==='sendform'){const v=$('#msgin').value.trim();if(!v)return;S.msgs.push({who:'us',ch:'Text',t:'Today '+fmtT(now()),text:v});save();render();scrollTo(0,document.body.scrollHeight);$('#msgin').focus();return}
  if(f.id==='mform'){const sq=Math.round(+$('#m-sq').value),ft=Math.round(+$('#m-ft').value);if(!(sq>0)||!(ft>0)){$('#merr').innerHTML='<div class="err">Enter both numbers from the satellite tool.</div>';return}const c=cust(UI.mcust);UI.tab=UI.mback==='est'?'est':'cust';commit(`Saved ${sq.toLocaleString()} sq ft for ${c.name}`,()=>{delete S.pendingMeasure;c.lawnSqft=sq;c.perimFt=ft});if(UI.mback!=='est')custSheet(c.id);return}
- if(f.id==='jobform')saveJob();if(f.id==='custform')saveCust();if(f.id==='itemform')saveItem();
+ if(f.id==='jobform')saveJob();if(f.id==='custform')saveCust();if(f.id==='itemform')saveItem();if(f.id==='hireform')saveHire();if(f.id==='letgoform')saveLetGo();
  if(f.id==='probform'){const t=$('#pt').value.trim();if(!t){$('#perr').innerHTML=`<div class="err">${tr('Write a few words about what happened.','Escriba unas palabras sobre lo que pasó.')}</div>`;return}
   const kind=f.querySelector('.opt[aria-pressed="true"]').dataset.w,j=job(f.dataset.id);close();commit(tr('Sent. Hunter will see it right away.','Enviado. Hunter lo verá de inmediato.'),()=>S.problems.push({kind,text:t,where:cust(j.cust).address.split(',')[0]}))}});
 document.addEventListener('change',async e=>{const el=e.target,f=el.files?.[0];if(!f)return;
  if(el.dataset.c==='photo'){const j=job(el.dataset.id);try{PHOTO[j.id]=URL.createObjectURL(f)}catch(_){}j.photo=true;save();render();const crew=S.crews.find(c=>c.id===j.crew);await keepPhoto(f,{cust:j.cust,job:j.id,label:j.service+' · after photo',by:crew?crew.name:''})}
+ if(el.dataset.c==='pdoc'){const p=person(el.dataset.id);p.docs=p.docs||{};p.docNames=p.docNames||{};p.docs[el.dataset.k]=new Date().toISOString();p.docNames[el.dataset.k]=f.name.slice(0,40);save();render();toast('Marked as on file')}
  if(el.dataset.c==='cphoto'){const c=cust(el.dataset.id);if(await keepPhoto(f,{cust:c.id,label:'Photo'})){render();toast(`Photo saved to ${c.name}`)}else toast("That photo couldn't be saved")}
  if(el.dataset.c==='lphoto'){const d=UI.draft,it=plant(el.dataset.id);const n=(S.photos||[]).length;if(await keepPhoto(f,{cust:d.cust,label:'Estimate photo · '+it.name})){d.photos=d.photos||{};d.photos[el.dataset.id]=S.photos[S.photos.length-1].id;render();toast('Photo attached. It is also saved on the customer.')}}
 });
