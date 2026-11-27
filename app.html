@@ -349,12 +349,59 @@ function saveLetGo(){const f=$('#letgoform'),id=f.dataset.id,p=person(id),d=$('#
  const done=[...document.querySelectorAll('.lg-step:checked')].map(x=>x.value),notes=$('#l-n').value.trim();close();
  commit(`${p.name} moved to past employees`,()=>{Object.assign(p,{gone:true,endDate:d,endReason:r,endNotes:notes,offboard:done,crew:null,inAt:null,off:false});if(S.qbo)S.qboLog=(S.qboLog||[]).concat([`${p.name} marked inactive in QuickBooks`])})}
 
+const addrKY=a=>(a||'')+(/\b(KY|Kentucky)\b/i.test(a||'')?'':', KY');
+function navURL(js){const a=js.map(j=>encodeURIComponent(addrKY(cust(j.cust).address)));if(!a.length)return '#';const dest=a[a.length-1],wp=a.slice(0,-1).join('|');return `https://www.google.com/maps/dir/?api=1&destination=${dest}${wp?'&waypoints='+wp:''}&travelmode=driving`}
+const RT={map:null,marks:[],line:null,truck:null};
+const hav=(a,b)=>{const R=3958.8,r=x=>x*Math.PI/180,dl=r(b.lat-a.lat),dg=r(b.lng-a.lng),h=Math.sin(dl/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dg/2)**2;return 2*R*Math.asin(Math.sqrt(h))*1.3};
+const legMin=mi=>mi/25*60;
+function pathMi(pts){let t=0;for(let i=1;i<pts.length;i++)t+=hav(pts[i-1],pts[i]);return t}
+function bestOrder(pts){// keep the first stop, nearest neighbor then 2-opt
+ const n=pts.length;if(n<3)return pts.map((_,i)=>i);let left=pts.map((_,i)=>i).slice(1),ord=[0];
+ while(left.length){const last=pts[ord[ord.length-1]];left.sort((a,b)=>hav(last,pts[a])-hav(last,pts[b]));ord.push(left.shift())}
+ let better=true;const len=o=>pathMi(o.map(i=>pts[i]));while(better){better=false;for(let i=1;i<n-1;i++)for(let k=i+1;k<n;k++){const o=ord.slice(0,i).concat(ord.slice(i,k+1).reverse(),ord.slice(k+1));if(len(o)+1e-9<len(ord)){ord=o;better=true}}}
+ return ord}
+function routeJobs(){return crewDay(UI.rcrew,UI.day).filter(j=>j.status!=='skipped')}
+function shareLoc(){const p=meP();if(!p||!p.crew||!navigator.geolocation)return;try{navigator.geolocation.getCurrentPosition(pos=>{S.truckLoc=S.truckLoc||{};S.truckLoc[p.crew]={lat:pos.coords.latitude,lng:pos.coords.longitude,at:Date.now(),by:p.name};save()},()=>{},{enableHighAccuracy:true,timeout:10000,maximumAge:60000})}catch(e){}}
+function route(){loadGM();const c=crew(UI.rcrew),js=routeJobs(),lc=S.truckLoc&&S.truckLoc[UI.rcrew];
+ const mi=js.every(j=>cust(j.cust).geo)?pathMi(js.map(j=>cust(j.cust).geo)):null;
+ return `<div class="stack"><button class="back" data-a="tab" data-t="sched">${ic('back',18)} Schedule</button>
+ <div><div class="sub sm">${UI.day===0?'Today':dd(UI.day).toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'})}</div><h1>${esc(c.name)} route</h1></div>
+ ${GM==='fail'?'<div class="card"><div class="sub sm">The live map opens on your Prime Cut link. The stop list and navigation work here too.</div></div>':`<div id="rmap" style="height:46vh;min-height:260px;border-radius:18px;overflow:hidden;background:#DDE5DC;display:grid;place-items:center;color:var(--sub)">${GM==='ok'?'':'Loading the map…'}</div>`}
+ <div class="stats" style="grid-template-columns:1fr 1fr 1fr"><div class="stat" style="cursor:default"><b class="num">${js.length}</b><span>Stops</span></div><div class="stat" style="cursor:default"><b class="num" id="r-mi">${mi!=null?mi.toFixed(1):'—'}</b><span>Miles</span></div><div class="stat" style="cursor:default"><b class="num" id="r-min">${mi!=null?Math.round(legMin(mi)):'—'}</b><span>Drive min</span></div></div>
+ <div class="card"><div class="item" style="cursor:default"><div class="ico ${lc?'green':'blue'}">${ic('pin',20)}</div><div class="grow"><div class="t">${lc?'Truck seen '+ago(lc.at):'Live truck location'}</div><div class="d" style="white-space:normal">${lc?'From '+esc(lc.by)+"'s phone":'Shows when the crew lead clocks in on their phone. CUBE Tracker GPS can feed this too once connected.'}</div></div></div></div>
+ <div class="card">${js.map((j,i)=>{const k=cust(j.cust);return `<button class="item" data-a="jobsheet" data-id="${j.id}"><div class="av" style="background:${c.color}">${i+1}</div><div class="grow"><div class="t">${esc(k.name)}</div><div class="d">${fmtT(j.start)} · ${esc(j.service)} · ${esc(k.address)}</div></div>${pill(j)}</button>`}).join('')}</div>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button class="btn go" data-a="optroute">Suggest faster order</button><a class="btn" style="display:flex;align-items:center;justify-content:center;text-decoration:none;color:inherit" target="_blank" rel="noopener" href="${navURL(js.filter(j=>j.status!=='done'))}">Open in Google Maps</a></div>
+ <div class="sub sm">Drive times are estimates from distance. Live traffic times come with the Routes API on the client's Google account.</div></div>`}
+const ago=t=>{const m=Math.round((Date.now()-t)/6e4);return m<1?'just now':m<60?m+' min ago':Math.round(m/60)+' hr ago'};
+async function geoAll(js){const g=google.maps,gc=new g.Geocoder();let changed=false;
+ for(const j of js){const k=cust(j.cust);if(k.geo)continue;try{const r=await gc.geocode({address:addrKY(k.address),region:'us'});if(r.results&&r.results[0]){const l=r.results[0].geometry.location;k.geo={lat:l.lat(),lng:l.lng()};changed=true}}catch(e){}}
+ if(changed)save();return changed}
+async function rInit(){const el=document.getElementById('rmap');if(!el||GM!=='ok')return;const g=google.maps,c=crew(UI.rcrew),js=routeJobs();
+ RT.map=new g.Map(el,{center:{lat:39.0,lng:-84.65},zoom:11,mapTypeId:'roadmap',disableDefaultUI:true,zoomControl:true,gestureHandling:'greedy',clickableIcons:false});
+ if(await geoAll(js)&&UI.tab==='route'){render();return}
+ const pts=js.map(j=>cust(j.cust).geo).filter(Boolean),b=new g.LatLngBounds();
+ js.forEach((j,i)=>{const k=cust(j.cust);if(!k.geo)return;b.extend(k.geo);new g.Marker({map:RT.map,position:k.geo,label:{text:String(i+1),color:'#fff',fontWeight:'700'},title:k.name,icon:{path:g.SymbolPath.CIRCLE,scale:13,fillColor:j.status==='done'?'#9AA59D':c.color,fillOpacity:1,strokeColor:'#fff',strokeWeight:2}})});
+ if(pts.length>1)new g.Polyline({map:RT.map,path:pts,strokeColor:c.color,strokeOpacity:.9,strokeWeight:4});
+ const lc=S.truckLoc&&S.truckLoc[UI.rcrew];if(lc){b.extend(lc);new g.Marker({map:RT.map,position:lc,title:'Truck',zIndex:999})}
+ if(!b.isEmpty()){if(pts.length+(lc?1:0)>1)RT.map.fitBounds(b,40);else{RT.map.setCenter(b.getCenter());RT.map.setZoom(15)}}}
+function optRoute(){const js=routeJobs(),fixed=js.filter(j=>j.status!=='todo'),todo=js.filter(j=>j.status==='todo');
+ if(todo.length<2)return toast('Not enough stops left to reorder');
+ if(GM!=='ok'||todo.some(j=>!cust(j.cust).geo))return toast('Open this on your Prime Cut link so the map can find each address');
+ const startPt=fixed.length?cust(fixed[fixed.length-1].cust).geo:null,list=startPt?[{geo:startPt}].concat(todo.map(j=>({geo:cust(j.cust).geo,j}))):todo.map(j=>({geo:cust(j.cust).geo,j}));
+ const pts=list.map(x=>x.geo),ord=bestOrder(pts),now_=pathMi(pts),best=pathMi(ord.map(i=>pts[i])),saved=Math.round(legMin(now_-best));
+ if(saved<2)return sheet(`<div class="stack"><h2>Already the quickest order</h2><div class="sub">This route is about as short as it gets: ${best.toFixed(1)} miles, around ${Math.round(legMin(best))} minutes of driving.</div><button class="btn full big go" data-a="close">OK</button></div>`);
+ const newTodo=ord.map(i=>list[i].j).filter(Boolean);UI.newOrder=newTodo.map(j=>j.id);
+ sheet(`<div class="stack"><h2>Save about ${saved} minutes</h2><div class="sub">Drive ${best.toFixed(1)} miles instead of ${now_.toFixed(1)}. New order:</div><div class="card">${newTodo.map((j,i)=>`<div class="item" style="cursor:default"><div class="av" style="background:var(--deep)">${fixed.length+i+1}</div><div class="grow"><div class="t">${esc(cust(j.cust).name)}</div><div class="d">${esc(j.service)}</div></div></div>`).join('')}</div><button class="btn full big go" data-a="useorder">Use this order</button><button class="btn full" data-a="close">Keep my order</button></div>`)}
+function useOrder(){const js=routeJobs(),fixed=js.filter(j=>j.status!=='todo'),ids=UI.newOrder||[];
+ const first=js.filter(j=>j.status==='todo').reduce((m,j)=>Math.min(m,j.start),1e9);close();
+ commit('Route updated. The crew sees the new order.',()=>{let t=first;ids.forEach((id,i)=>{const j=job(id);if(i>0){const p=job(ids[i-1]),mi=cust(p.cust).geo&&cust(j.cust).geo?hav(cust(p.cust).geo,cust(j.cust).geo):5;t=p.start+p.est+Math.max(5,Math.round(legMin(mi)))}j.start=t})})}
+
 function sched(){
  const d=UI.day;
  const days=[0,1,2,3,4].map(x=>`<button class="day" data-a="day" data-d="${x}" aria-pressed="${x===d}"><small>${x===0?'Today':dd(x).toLocaleDateString(undefined,{weekday:'short'})}</small><b>${dd(x).getDate()}</b></button>`).join('');
  return `<div class="stack"><h1>Schedule</h1><div class="days">${days}</div>
  ${S.crews.map(c=>{const js=crewDay(c.id,d),b=booked(c.id,d),over=b>540;
-  return `<div class="sec"><h2><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c.color};margin-right:6px"></span>${c.name}</h2><span class="chip ${over?'c-red':'c-gray'} num">${hrs(b)}${over?' · too full':''}</span></div>
+  return `<div class="sec"><h2><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c.color};margin-right:6px"></span>${c.name}</h2><span style="display:flex;gap:8px;align-items:center"><span class="chip ${over?'c-red':'c-gray'} num">${hrs(b)}${over?' · too full':''}</span>${js.length?`<button class="btn sm dark" data-a="route" data-id="${c.id}">${ic('pin',16)} Route</button>`:''}</span></div>
   <div class="card">${js.length?js.map(j=>{const k=cust(j.cust);return `<button class="item" data-a="jobsheet" data-id="${j.id}"><div class="grow"><div class="t">${esc(k.name)}</div><div class="d">${esc(j.service)} · ${esc(k.address.split(',')[1]||'')}</div></div>${pill(j)}<span class="chev">${ic('chev',18)}</span></button>`}).join(''):'<div class="sub sm">Nothing booked</div>'}</div>`}).join('')}
  </div>`;
 }
@@ -447,6 +494,7 @@ function today(){
  return `<div class="stack"><div class="sec" style="margin:0;align-items:flex-start"><div><div class="sub sm">${tr(c.name,'Equipo '+c.name.slice(-1))} · ${dd(0).toLocaleDateString(loc(),{weekday:'long',month:'short',day:'numeric'})}</div><h1>${tr('Hi','Hola')}, ${esc(p.name.split(' ')[0])}</h1></div><button class="btn sm" data-a="lang" style="background:var(--card);box-shadow:var(--shadow)" aria-label="${tr('Switch to Spanish','Cambiar a inglés')}">${tr('Español','English')}</button></div>
  <div class="card">${clock}</div>
  <div class="sec"><h2>${tr("Today's stops",'Paradas de hoy')}</h2><span class="sub sm num">${s.done} ${tr('of','de')} ${s.js.length} ${tr('done','listas')}</span></div>
+ ${s.js.some(j=>j.status==='todo'||j.status==='now')?`<a class="btn full dark" style="display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none" target="_blank" rel="noopener" href="${navURL(s.js.filter(j=>j.status==='todo'||j.status==='now'))}">${ic('pin',18)} ${tr('Navigate all stops','Navegar a todas las paradas')}</a>`:''}
  ${s.js.map((j,i)=>{const k=cust(j.cust);return `<button class="stop ${({done:'done',now:'now',skipped:'skip',todo:''})[j.status]}" data-a="openjob" data-id="${j.id}"><div class="n">${j.status==='done'?ic('check',20,3):j.status==='skipped'?ic('x',20):i+1}</div><div class="grow" style="flex:1;min-width:0"><div class="addr">${esc(k.address.split(',')[0])}</div><div class="sub sm">${esc(L(j.service))}${j.status==='now'?tr(' · working now',' · trabajando'):j.status==='skipped'?tr(' · skipped',' · saltada'):''}</div></div><span class="chev">${ic('chev',18)}</span></button>`}).join('')}
  </div>`;
 }
@@ -733,7 +781,7 @@ const GKEY='AIzaSyDOlhbueW1QlluRrtb3giU_cf43_USY1fw';
 let GM=null; // null = not tried, 'loading', 'ok', 'fail'
 const MS={pts:[],closed:false,mode:'grass',map:null,poly:null,line:null,markers:[],pin:null,cust:null};
 function loadGM(){if(GM)return;if(window.google&&google.maps&&google.maps.geometry){GM='ok';return}GM='loading';
- window.__pcGM=()=>{GM='ok';if(UI.tab==='measure')render()};
+ window.__pcGM=()=>{GM='ok';if(UI.tab==='measure'||UI.tab==='route')render()};
  const sc=document.createElement('script');sc.src='https://maps.googleapis.com/maps/api/js?key='+GKEY+'&libraries=geometry&callback=__pcGM&loading=async';
  sc.onerror=()=>{GM='fail';if(UI.tab==='measure')render()};
  setTimeout(()=>{if(GM==='loading'){GM='fail';if(UI.tab==='measure')render()}},8000);
@@ -861,14 +909,15 @@ function thread(){const c=cust('k1');
 /* ---------------- shell ---------------- */
 function tabs(){return S.role==='owner'?[['home','Home','home'],['sched','Schedule','cal'],['cust','Customers','people'],['msgs','Messages','chat'],['sales','Sales','tag']]:[['today',tr('Today','Hoy'),'list'],['hours',tr('Hours','Horas'),'clock']]}
 function render(){
- const tb=tabs();if(!UI.tab||(!tb.some(x=>x[0]===UI.tab)&&UI.tab!=='job'&&UI.tab!=='thread'&&UI.tab!=='est'&&UI.tab!=='measure'&&UI.tab!=='profile'&&UI.tab!=='team'&&UI.tab!=='person'))UI.tab=tb[0][0];
+ const tb=tabs();if(!UI.tab||(!tb.some(x=>x[0]===UI.tab)&&UI.tab!=='job'&&UI.tab!=='thread'&&UI.tab!=='est'&&UI.tab!=='measure'&&UI.tab!=='profile'&&UI.tab!=='team'&&UI.tab!=='person'&&UI.tab!=='route'))UI.tab=tb[0][0];
  $('#as-owner').setAttribute('aria-pressed',S.role==='owner');$('#as-crew').setAttribute('aria-pressed',S.role==='crew');
- const cur=UI.tab==='job'?'today':UI.tab==='thread'?'msgs':UI.tab==='est'?'sales':UI.tab==='measure'?(UI.mback==='est'?'sales':'cust'):UI.tab==='profile'?(UI.pback||'cust'):UI.tab==='team'||UI.tab==='person'?'home':UI.tab;
+ const cur=UI.tab==='job'?'today':UI.tab==='thread'?'msgs':UI.tab==='est'?'sales':UI.tab==='measure'?(UI.mback==='est'?'sales':'cust'):UI.tab==='profile'?(UI.pback||'cust'):UI.tab==='team'||UI.tab==='person'?'home':UI.tab==='route'?'sched':UI.tab;
  if(UI.tab==='thread')S.unread=0;
  $('#tabs').innerHTML=tb.map(([v,l,i])=>`<button class="tab" data-a="tab" data-t="${v}" ${v===cur?'aria-current="page"':''} style="position:relative">${ic(i,22)}${l}${v==='msgs'&&S.unread?`<span class="badge" style="position:absolute;top:4px;right:18%">${S.unread}</span>`:''}</button>`).join('');
  $('#fab').hidden=!(S.role==='owner'&&UI.tab==='sched');
- $('#app').innerHTML=({home,sched,cust:custs,today,job:jobView,hours,msgs,thread,sales,est:estBuilder,measure,profile,team,person:personView})[UI.tab]();
+ $('#app').innerHTML=({home,sched,cust:custs,today,job:jobView,hours,msgs,thread,sales,est:estBuilder,measure,profile,team,person:personView,route})[UI.tab]();
  if(UI.tab==='measure'&&GM==='ok')setTimeout(mInit,0);
+ if(UI.tab==='route'&&GM==='ok')setTimeout(rInit,0);
 }
 const A={
  as:d=>{S.role=d.r;save();UI.tab=null;render();scrollTo(0,0)},
@@ -882,6 +931,7 @@ const A={
  pback:()=>{UI.tab=UI.pback||'cust';render();scrollTo(0,0)},
  profest:d=>{UI.draft={cust:d.id,title:'',lines:{}};UI.eback=d.id;UI.tab='est';render();scrollTo(0,0)},
  photoview:d=>photoView(d.id),
+ route:d=>{UI.rcrew=d.id;UI.tab='route';render();scrollTo(0,0)}, optroute:()=>optRoute(), useorder:()=>useOrder(),
  person:d=>{close();UI.person=d.id;UI.tab='person';render();scrollTo(0,0)},
  hire:d=>hireForm(d.id||null), letgo:d=>letGo(d.id),
  rehire:d=>{const p=person(d.id);commit(`${p.name} is back on the team`,()=>{p.gone=false;p.crew=S.crews[0].id;p.start=new Date().toISOString().slice(0,10);delete p.endDate})},
@@ -942,7 +992,7 @@ const A={
  addjob:()=>addJob(), addcust:()=>addCust('',{},'',null), editcust:d=>addCust('',{},'',d.id), delcust:d=>delCust(d.id),
  delcustok:d=>{const c=cust(d.id);close();if(UI.tab==='profile')UI.tab=UI.pback||'cust';commit(`Deleted ${c.name}`,()=>{c.archived=true;S.jobs=S.jobs.filter(j=>!(j.cust===d.id&&j.status==='todo'))})},
  openjob:d=>{UI.tab='job';UI.job=d.id;render();scrollTo(0,0)},
- clockin:()=>{UI.locating=true;render();setTimeout(()=>{UI.locating=false;commit(tr('Clocked in at the shop','Entrada marcada en el taller'),()=>{meP().inAt=now()})},1200)},
+ clockin:()=>{UI.locating=true;render();setTimeout(()=>{UI.locating=false;commit(tr('Clocked in at the shop','Entrada marcada en el taller'),()=>{meP().inAt=now()});shareLoc()},1200)},
  clockout:()=>{const p=meP(),left=crewDay(p.crew,0).filter(j=>j.status==='todo'||j.status==='now').length;confirmIt(tr('Clock out for today?','¿Marcar salida por hoy?'),`${left?tr(`Your crew still has <b>${left} stop${left>1?'s':''}</b> left. `,`A su equipo le quedan <b>${left} parada${left>1?'s':''}</b>. `):''}${tr('You worked','Trabajó')} ${hrs(worked(p))}.`,tr('Clock out','Marcar salida'),()=>commit(tr('Clocked out','Salida marcada'),()=>{p.outAt=now()}),true)},
  start:d=>{const j=job(d.id),p=meP();
   if(p.inAt==null||p.outAt!=null)return confirmIt(tr('Clock in first','Primero marque su entrada'),tr('Clock in before you start a job so your hours match the work.','Marque su entrada antes de empezar para que sus horas coincidan con el trabajo.'),tr('Clock in now','Marcar entrada ahora'),()=>{UI.tab='today';A.clockin()});
