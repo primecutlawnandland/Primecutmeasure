@@ -301,12 +301,9 @@ function crewSheet(id){const c=crew(id),s=crewInfo(id);
 const pill=j=>({done:'<span class="chip c-green">Done</span>',now:'<span class="chip c-blue">Working</span>',skipped:'<span class="chip c-red">Skipped</span>',todo:'<span class="chip c-gray">'+fmtT(j.start)+'</span>'}[j.status]);
 
 const DOCS=[
- ['w4','Federal W-4','Tax withholding','form','https://www.irs.gov/pub/irs-pdf/fw4.pdf','W-4 federal','Retención de impuestos federales'],
- ['k4','Kentucky K-4','State tax withholding','form','https://www.google.com/search?q=Kentucky+K-4+withholding+certificate+site%3Arevenue.ky.gov','K-4 de Kentucky','Retención de impuestos del estado'],
- ['i9','I-9 and ID','Work eligibility and ID photo','form','https://www.uscis.gov/i-9','I-9 e identificación','Elegibilidad para trabajar y foto de ID'],
- ['dd','Direct deposit form','Where to send their pay','form','','Depósito directo','Dónde enviar su pago'],
  ['license',"Driving and vehicle use","License check and company truck rules",'form','','Manejo y uso de vehículos','Licencia y reglas de la camioneta'],
  ['handbook','Handbook and safety sign-off','Rules, equipment safety, PPE','form','','Manual y seguridad','Reglas, seguridad y equipo de protección']];
+// Tax forms, I-9 and direct deposit are done in QuickBooks (Richie, 2026-11-27).
 const FORMS={
  w4:{title:['Federal W-4: tax withholding','W-4 federal: retención de impuestos'],
   fields:[['h1','Step 1: Your information','Paso 1: Su información','hdr'],
@@ -384,9 +381,10 @@ function personView(){const p=person(UI.person);if(!p){UI.tab='team';return team
  return `<div class="stack"><button class="back" data-a="tab" data-t="team">${ic('back',18)} Team</button>
  <div style="display:flex;gap:12px;align-items:flex-start"><div class="grow"><h1>${esc(p.name)}</h1><div class="sub">${p.gone?'Past employee · last day '+fmtD(p.endDate):esc(p.role||'Crew member')+(p.crew?' · '+esc(crew(p.crew).name):'')}</div></div><button class="btn sm" data-a="hire" data-id="${p.id}">Edit</button></div>
  <div class="card">${f('Phone',esc(p.phone||''))}${f('Email',esc(p.email||''))}${f('Pay',p.pay?`${money(p.pay)} ${p.payType==='year'?'per year':'per hour'}`:'')}${f('Start date',p.start?fmtD(p.start):'')}${f('Emergency contact',p.emName?esc(p.emName)+(p.emPhone?' · '+esc(p.emPhone):''):'')}</div>
- <div class="sec"><h2>Hiring papers</h2><span class="sub sm">${docCount(p)}/${DOCS.length} on file</span></div>
+ <div class="sec"><h2>Company sign-offs</h2><span class="sub sm">${docCount(p)}/${DOCS.length} signed</span></div>
+ <div class="sub sm" style="margin-top:-8px">W-4, K-4, I-9 and direct deposit are handled in QuickBooks.</div>
  <div class="card">${DOCS.map(([k,l,d])=>{const on=(p.docs||{})[k],by=(p.docBypass||{})[k];return `<button class="item" data-a="docopen" data-id="${p.id}" data-k="${k}"><div class="ico ${on?'green':by?'blue':'amber'}">${ic(on?'check':'doc',18)}</div><div class="grow"><div class="t">${l}</div><div class="d" style="white-space:normal">${on?'Done · '+fmtD(on):by?'Skipped by '+esc(by.by)+' · '+esc(by.reason):'Not done · '+d}</div></div><span class="chev">${ic('chev',16)}</span></button>`}).join('')}</div>
- ${papersLeft(p).length&&!p.gone?`<div class="sub sm">${esc(p.name.split(' ')[0])} can't clock in until every paper is done or skipped by a manager.</div>`:''}
+ ${papersLeft(p).length&&!p.gone?`<div class="sub sm">${esc(p.name.split(' ')[0])} can't clock in until these are signed or skipped by a manager.</div>`:''}
  ${p.gone?`<div class="card">${f('Reason',esc(p.endReason||''))}${f('Notes',esc(p.endNotes||''))}${f('Offboarding',(p.offboard||[]).map(esc).join(', '))}</div><button class="btn full" data-a="rehire" data-id="${p.id}">Rehire ${esc(p.name.split(' ')[0])}</button>`
  :`<button class="btn full redb" data-a="letgo" data-id="${p.id}">Let ${esc(p.name.split(' ')[0])} go</button>`}
  </div>`}
@@ -620,7 +618,7 @@ function today(){
 }
 function papersView(p){const left=papersLeft(p);
  return `<div class="stack"><div style="display:flex;align-items:flex-end;justify-content:space-between;gap:10px"><div><div class="sub sm">${tr('Welcome to Prime Cut','Bienvenido a Prime Cut')}</div><h1>${tr('Hi','Hola')}, ${esc(p.name.split(' ')[0])}</h1></div><button class="btn sm" data-a="lang" style="background:var(--card);box-shadow:var(--shadow)" aria-label="${tr('Switch to Spanish','Cambiar a inglés')}">${tr('Español','English')}</button></div>
- <div class="card"><div class="item" style="cursor:default"><div class="ico amber">${ic('doc',20)}</div><div class="grow"><div class="t" style="white-space:normal">${tr('Finish your hiring papers to start','Termine sus papeles de contratación para empezar')}</div><div class="d" style="white-space:normal">${tr(`${left.length} left. You can clock in when they're done.`,`Faltan ${left.length}. Podrá marcar entrada cuando termine.`)}</div></div></div></div>
+ <div class="card"><div class="item" style="cursor:default"><div class="ico amber">${ic('doc',20)}</div><div class="grow"><div class="t" style="white-space:normal">${tr('Sign these before your first shift','Firme esto antes de su primer turno')}</div><div class="d" style="white-space:normal">${tr(`${left.length} left. You can clock in when they're done.`,`Faltan ${left.length}. Podrá marcar entrada cuando termine.`)}</div></div></div></div>
  <div class="card">${DOCS.map(([k,l,d,,,les,des])=>{const on=docDone(p,k);return `<button class="item" data-a="mydoc" data-k="${k}"><div class="ico ${on?'green':'amber'}">${ic(on?'check':'doc',18)}</div><div class="grow"><div class="t">${tr(l,les)}</div><div class="d">${on?tr('Done','Listo'):tr(d,des)}</div></div><span class="chev">${ic('chev',16)}</span></button>`}).join('')}</div></div>`}
 function jobView(){
  const j=job(UI.job),k=cust(j.cust),t=now();
