@@ -49,7 +49,7 @@ a.btn{display:flex;align-items:center;justify-content:center;text-decoration:non
 <div class="app">
   <header>
     <svg width="34" height="34" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#4ABC39"/><path d="M9 26c1-6 2-11 4-15M14 26c0-7 1-13 3-18M19 26c0-6 2-11 5-14" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg>
-    <div><b>PRIME CUT</b><small>YARD MEASURE · V4</small></div>
+    <div><b>PRIME CUT</b><small>YARD MEASURE · V5</small></div>
     <a class="back" id="back" href="https://claude.ai/artifact/8uRm1MjYwkNW4zAQF8J3VF">&#8249; Back</a>
   </header>
 
@@ -83,7 +83,7 @@ const BUILT_IN_KEY = 'AIzaSyDOlhbueW1QlluRrtb3giU_cf43_USY1fw';
 const $=s=>document.querySelector(s);
 const store={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
 const SQM_TO_SQFT=10.7639, M_TO_FT=3.28084;
-let map,geocoder,poly,line,markers=[],pts=[],closed=false,saved=JSON.parse(store.get('pc-areas')||'[]');
+let map,geocoder,poly,line,pin=null,custId='',markers=[],pts=[],closed=false,saved=JSON.parse(store.get('pc-areas')||'[]');
 
 function boot(){
   const key=(BUILT_IN_KEY||'').trim()||store.get('pc-gmaps-key');
@@ -112,6 +112,7 @@ function init(){
   map.addListener('click',e=>{if(closed)return;if(!pts.length)$('#msg').innerHTML='';pts.push(e.latLng);draw()});
   renderSaved();
   let fromApp='';try{fromApp=decodeURIComponent((location.hash.match(/addr=([^&]*)/)||[])[1]||'').trim()}catch(e){}
+  try{custId=decodeURIComponent((location.hash.match(/cust=([^&]*)/)||[])[1]||'').trim()}catch(e){}
   if(fromApp){$('#addr').value=fromApp;find()}
   else{const last=store.get('pc-last-addr');if(last){$('#addr').value=last}}
 }
@@ -132,7 +133,7 @@ async function suggest(q){const lib=await placesLib();if(!lib||!lib.Autocomplete
 async function pick(i){const p=sugs[i].placePrediction;$('#addr').value=p.text.text;hideSug();
   try{const place=p.toPlace();await place.fetchFields({fields:['location','formattedAddress']});token=null;
     $('#addr').value=place.formattedAddress||p.text.text;store.set('pc-last-addr',$('#addr').value);$('#msg').innerHTML='';
-    map.setCenter(place.location);map.setZoom(20);clearPts()}catch(e){find()}}
+    showPin(place.location,$('#addr').value);clearPts()}catch(e){find()}}
 $('#addr').addEventListener('input',()=>{clearTimeout(timer);const q=$('#addr').value.trim();if(q.length<3){hideSug();return}timer=setTimeout(()=>suggest(q),250)});
 $('#addr').addEventListener('keydown',e=>{if($('#sug').hidden)return;
   if(e.key==='ArrowDown'){sel=Math.min(sugs.length-1,sel+1);showSug();e.preventDefault()}
@@ -140,12 +141,17 @@ $('#addr').addEventListener('keydown',e=>{if($('#sug').hidden)return;
   else if(e.key==='Enter'&&sel>=0){e.preventDefault();e.stopImmediatePropagation();pick(sel)}
   else if(e.key==='Escape')hideSug()});
 $('#addr').addEventListener('blur',()=>setTimeout(hideSug,150));
+function showPin(loc,label){
+  if(!pin)pin=new google.maps.Marker({map,clickable:false,zIndex:1,animation:google.maps.Animation.DROP});
+  pin.setPosition(loc);pin.setTitle(label||'');pin.setMap(map);
+  map.setCenter(loc);map.setZoom(20);
+}
 function find(){hideSug();
   const a=$('#addr').value.trim();if(!a)return;
   geocoder.geocode({address:a,region:'us'},(res,status)=>{
     if(status!=='OK'||!res[0]){$('#msg').innerHTML='<div class="err">Could not find that address. Add the city and KY.</div>';return}
     $('#msg').innerHTML='';store.set('pc-last-addr',a);
-    map.setCenter(res[0].geometry.location);map.setZoom(20);clearPts();
+    showPin(res[0].geometry.location,a);clearPts();
   });
 }
 $('#go').onclick=find;$('#addr').addEventListener('keydown',e=>{if(e.key==='Enter')find()});
@@ -169,13 +175,17 @@ $('#clear').onclick=clearPts;
 $('#keep').onclick=()=>{
   if(!closed){if(pts.length<3){$('#msg').innerHTML='<div class="err">Tap at least 3 corners of the grass first.</div>';return}$('#msg').innerHTML='';closed=true;draw();return}
   const sph=google.maps.geometry.spherical;
-  const rec={addr:$('#addr').value.trim()||'Unnamed',sqft:Math.round(sph.computeArea(pts)*SQM_TO_SQFT),ft:Math.round(sph.computeLength(pts.concat([pts[0]]))*M_TO_FT),when:new Date().toLocaleDateString()};
+  const rec={addr:$('#addr').value.trim()||'Unnamed',sqft:Math.round(sph.computeArea(pts)*SQM_TO_SQFT),ft:Math.round(sph.computeLength(pts.concat([pts[0]]))*M_TO_FT),when:new Date().toLocaleDateString(),cust:custId};
   saved.unshift(rec);saved=saved.slice(0,30);store.set('pc-areas',JSON.stringify(saved));renderSaved();clearPts();
-  $('#msg').innerHTML='<div class="done"><div>Saved. Type these into the customer\'s Measure screen in Prime Cut:</div><b id="dnum"></b><a class="btn go" href="'+$('#back').href+'">&#8249; Back to Prime Cut</a></div>';
+  const payload='PRIMECUT-MEASURE '+JSON.stringify({cust:rec.cust,addr:rec.addr,sqft:rec.sqft,ft:rec.ft});
+  const backUrl=$('#back').href.split('#')[0]+'#pcm='+encodeURIComponent(JSON.stringify({cust:rec.cust,addr:rec.addr,sqft:rec.sqft,ft:rec.ft}));
+  $('#msg').innerHTML='<div class="done"><div id="dtxt">Saved and copied. Back in Prime Cut it fills in by itself.</div><b id="dnum"></b><a class="btn go" id="dback">&#8249; Back to Prime Cut</a></div>';
+  $('#dback').href=backUrl;
   $('#dnum').textContent=rec.sqft.toLocaleString()+' sq ft · '+rec.ft.toLocaleString()+' ft around';
+  try{navigator.clipboard.writeText(payload).catch(()=>{$('#dtxt').textContent='Saved. Tap Back to Prime Cut to send it over.'})}catch(e){}
 };
 function renderSaved(){const box=$('#areas');box.textContent='';
-  saved.forEach(s=>{const d=document.createElement('div');d.className='area';const a=document.createElement('span');a.textContent=s.addr;const b=document.createElement('b');b.textContent=s.sqft.toLocaleString()+' sq ft · '+s.ft.toLocaleString()+' ft';d.append(a,b);box.append(d)})}
+  saved.forEach(s=>{const d=document.createElement('div');d.className='area';const a=document.createElement('span');a.textContent=s.addr;const b=document.createElement('b');b.textContent=s.sqft.toLocaleString()+' sq ft · '+s.ft.toLocaleString()+' ft';d.append(a,b);d.style.cursor='pointer';d.onclick=()=>{$('#addr').value=s.addr;find()};box.append(d)})}
 boot();
 })();
 </script>
