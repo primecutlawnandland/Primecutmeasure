@@ -555,7 +555,7 @@ function custs(){
 }
 function custRows(){const q=UI.q.trim().toLowerCase();
  const r=S.customers.filter(c=>!c.archived&&(!q||(c.name+' '+c.address+' '+c.phone).toLowerCase().includes(q)||(q.replace(/\D/g,'').length>2&&normP(c.phone).includes(q.replace(/\D/g,'')))));
- return r.length?r.map(c=>`<button class="item" data-a="custsheet" data-id="${c.id}"><div class="av" style="background:var(--mint);color:var(--deep)">${c.name.split(/\s+/).filter(w=>/[A-Za-z]/.test(w)).map(w=>w[0]).slice(0,2).join('')}</div><div class="grow"><div class="t">${esc(c.name)}</div><div class="d">${esc(c.address)}</div></div>${c.commercial?'<span class="chip c-blue">Business</span>':''}<span class="chev">${ic('chev',18)}</span></button>`).join(''):`<div class="sub">${q?`No one matches "${esc(UI.q)}".`:'No customers yet. Tap + Add.'}</div>`}
+ return r.length?r.map(c=>`<button class="item" data-a="custsheet" data-id="${c.id}"><div class="av" style="background:var(--mint);color:var(--deep)">${c.name.split(/\s+/).filter(w=>/[A-Za-z]/.test(w)).map(w=>w[0]).slice(0,2).join('')}</div><div class="grow"><div class="t">${esc(c.name)}</div><div class="d">${esc(c.address)}</div></div>${LEADST.includes(c.stage)?'<span class="chip c-amber">Lead</span>':''}${c.commercial?'<span class="chip c-blue">Business</span>':''}<span class="chev">${ic('chev',18)}</span></button>`).join(''):`<div class="sub">${q?`No one matches "${esc(UI.q)}".`:'No customers yet. Tap + Add.'}</div>`}
 function custSheet(id){close();UI.pid=id;if(UI.tab!=='profile')UI.pback=['sales','est','home','sched','msgs'].includes(UI.tab)&&UI.tab!=='est'?UI.tab:'cust';UI.tab='profile';render();scrollTo(0,0)}
 const fmtD=iso=>new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
 function profile(){const c=cust(UI.pid);if(!c||c.archived){UI.tab='cust';return custs()}
@@ -800,8 +800,63 @@ const UPSELL=[
 ];
 function callList(){const out=[];
  S.estimates.filter(e=>e.status==='sent').forEach(e=>{const c=cust(e.cust);out.push({t:`${c.first||c.name}: estimate #${e.id} has no answer`,d:`${e.title} · ${money(estTotal(e))} · sent ${e.sentAgo}`,val:estTotal(e),msg:`Hi ${c.first||c.name}, just checking in on the ${e.title.toLowerCase()} estimate. Any questions I can answer?`,c:c.id,k:'f'+e.id})});
- S.customers.filter(c=>!c.archived).forEach(c=>UPSELL.forEach(([svc,why,val,msg])=>{if(!c.services.some(x=>x[0]===svc)&&!S.offered.includes(c.id+svc))out.push({t:`${c.first||c.name} doesn't have ${svc.toLowerCase()}`,d:why,val,msg:msg.replace('{f}',c.first||c.name),c:c.id,k:c.id+svc})}));
+ S.customers.filter(c=>!c.archived&&!LEADST.includes(c.stage)&&c.stage!=='lostlead').forEach(c=>UPSELL.forEach(([svc,why,val,msg])=>{if(!c.services.some(x=>x[0]===svc)&&!S.offered.includes(c.id+svc))out.push({t:`${c.first||c.name} doesn't have ${svc.toLowerCase()}`,d:why,val,msg:msg.replace('{f}',c.first||c.name),c:c.id,k:c.id+svc})}));
  return out}
+const STAGES=[['open','Open'],['lead','New'],['contacted','Contacted'],['visit','Site visit'],['sent','Proposal sent'],['approved','Won'],['lost','Lost']];
+const SOURCES=['Phone call','Website form','Referral','Google','Facebook','Yard sign','Repeat customer','Other'];
+const LOSTWHY=['Price too high','Went with someone else','Bad timing','No answer','Not a fit for us','Other'];
+const LEADST=['lead','contacted','visit'];
+function deals(k){const L=S.customers.filter(c=>!c.archived&&LEADST.includes(c.stage)).map(c=>({kind:'lead',c,st:c.stage,at:c.leadAt||''}));
+ const LL=S.customers.filter(c=>!c.archived&&c.stage==='lostlead').map(c=>({kind:'lead',c,st:'lost',at:c.lostAt||c.leadAt||''}));
+ const E=S.estimates.map(e=>({kind:'est',e,c:cust(e.cust)||{name:'(deleted customer)'},st:e.status,at:e.date||''}));
+ const all=[...L,...LL,...E];return all.filter(d=>k==='open'?['lead','contacted','visit','sent'].includes(d.st):k==='all'||d.st===k).sort((x,y)=>(y.at||'').localeCompare(x.at||''))}
+function sinceTxt(iso){if(!iso)return '';const m=Math.round((Date.now()-new Date(iso).getTime())/6e4);return m<60?m+' min ago':m<1440?Math.round(m/60)+' h ago':Math.round(m/1440)+' days ago'}
+function funnelCard(){const rows=[['lead','New leads'],['contacted','Contacted'],['visit','Site visit booked'],['sent','Proposal sent'],['approved','Won']].map(([k,l])=>{const d=deals(k);return [k,l,d.length,d.filter(x=>x.kind==='est').reduce((a,x)=>a+estTotal(x.e),0)]});
+ const mx=Math.max(1,...rows.map(r=>r[2])),allLeads=S.customers.filter(c=>c.leadAt).length,quoted=S.customers.filter(c=>c.leadAt&&(c.stage==='quoted'||S.estimates.some(e=>e.cust===c.id))).length;
+ const src={};S.customers.filter(c=>c.source).forEach(c=>{src[c.source]=(src[c.source]||0)+1});
+ return `<div class="card stack" style="gap:8px">${rows.map(([k,l,n,v])=>`<button class="item" data-a="efilter" data-t="${k}" style="padding:4px 0;min-height:0"><div class="grow"><div style="display:flex;justify-content:space-between;font-size:.88rem;font-weight:600"><span>${l}</span><span class="num">${n}${v?' · '+money(v):''}</span></div><div style="height:10px;border-radius:99px;background:var(--mint);margin-top:4px;overflow:hidden"><div style="height:100%;width:${Math.max(n?8:0,n/mx*100)}%;background:${k==='approved'?'#29853A':'#4ABC39'};border-radius:99px"></div></div></div></button>`).join('')}
+ <div class="sub sm">${allLeads?`${Math.round(quoted/allLeads*100)}% of leads got a proposal.`:'No leads yet.'}${Object.keys(src).length?' Leads by source: '+Object.entries(src).sort((a,b)=>b[1]-a[1]).map(([k,n])=>esc(k)+' '+n).join(', ')+'.':''}</div></div>`}
+function estRows(){const q=(UI.eq||'').trim().toLowerCase(),qd=q.replace(/\D/g,'');
+ const r=deals(UI.ef||'open').filter(d=>{if(!q)return true;const c=d.c||{};return ((d.e?'#'+d.e.id+' '+d.e.title:'')+' '+(c.name||'')+' '+(c.address||'')+' '+(c.phone||'')+' '+(c.want||'')).toLowerCase().includes(q)||(qd.length>2&&normP(c.phone||'').includes(qd))});
+ if(!r.length)return `<div class="sub sm" style="padding:6px 2px">${q?'Nothing matches "'+esc(UI.eq.trim())+'".':'Nothing here right now.'}</div>`;
+ const SL={lead:['c-red','New lead'],contacted:['c-amber','Contacted'],visit:['c-blue','Site visit'],sent:['c-amber','Proposal sent'],approved:['c-green','Won'],lost:['c-gray','Lost']};
+ return r.map(d=>{const c=d.c,[cl,lb]=SL[d.st];
+  if(d.kind==='lead')return `<button class="item" data-a="leadsheet" data-id="${c.id}"><div class="grow"><div class="t">${esc(c.name)}</div><div class="d">${esc(c.want||'New request')}</div><div class="d">${esc(c.source||'')}${d.st==='visit'&&c.visitAt?' · visit '+fmtDT(c.visitAt):d.st==='lost'?' · '+esc(c.lostWhy||''):' · '+sinceTxt(c.leadAt)}</div></div><span class="chip ${cl}">${lb}</span><span class="chev">${ic('chev',18)}</span></button>`;
+  const e=d.e,nx=e.status==='sent'&&!e.fuOff&&S.autos.estimate?FU.find(x=>!(e.fu||{})[x.day]):null,when=e.date?fmtD(e.date):(e.sentAgo||'');
+  return `<button class="item" data-a="estsheet" data-id="${e.id}"><div class="grow"><div class="t">${esc(c.name)}</div><div class="d">#${e.id} · ${esc(e.title)} · ${money(estTotal(e))}</div><div class="d">${when?'Sent '+esc(when):''}${nx?' · next follow-up day '+nx.day:e.status==='sent'&&e.fuOff?' · follow-ups off':''}${e.status==='lost'&&e.lostWhy?' · '+esc(e.lostWhy):''}</div></div><span class="chip ${cl}">${lb}</span><span class="chev">${ic('chev',18)}</span></button>`}).join('')}
+const fmtDT=iso=>new Date(iso).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+function leadForm(err='',v={}){v=Object.assign({name:'',phone:'',email:'',address:'',source:'Phone call',want:''},v);
+ sheet(`<form id="leadform" class="stack" novalidate><h2>New lead</h2>${err?`<div class="err">${err}</div>`:''}
+ <div class="field"><label for="ld-n">Name</label><input id="ld-n" value="${esc(v.name)}" autocomplete="off"></div>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="field"><label for="ld-p">Phone</label><input id="ld-p" type="tel" value="${esc(v.phone)}"></div><div class="field"><label for="ld-e">Email (optional)</label><input id="ld-e" type="email" value="${esc(v.email)}"></div></div>
+ <div class="field"><label for="ld-a">Address (optional for now)</label><input id="ld-a" value="${esc(v.address)}"></div>
+ <div class="field"><label for="ld-s">How did they find us?</label><select id="ld-s">${SOURCES.map(x=>`<option ${x===v.source?'selected':''}>${x}</option>`).join('')}</select></div>
+ <div class="field"><label for="ld-w">What do they want?</label><input id="ld-w" value="${esc(v.want)}" placeholder="Example: weekly mowing, new front beds"></div>
+ <div class="sub sm">${S.autos.estimate?'They get a friendly text right away saying you will be in touch.':''}</div>
+ <button class="btn full big go" type="submit">Add lead</button></form>`)}
+function saveLead(v,quiet){
+ if(!v.name||!v.phone)return quiet?null:leadForm('Name and phone are needed.',v);
+ if(normP(v.phone).length!==10)return quiet?null:leadForm('The phone number needs 10 digits.',v);
+ const d=S.customers.find(c=>!c.archived&&normP(c.phone)===normP(v.phone));
+ const first=v.name.split(/[ &]/)[0],id=d?d.id:'k'+Date.now(),at=new Date().toISOString();
+ if(!quiet)close();
+ commit(d?`${d.name} is already a customer. Added as a new lead.`:`Lead added: ${v.name}`,()=>{
+  if(d)Object.assign(d,{stage:'lead',leadAt:at,source:v.source,want:v.want});
+  else S.customers.push({id,name:v.name,phone:v.phone,email:v.email||'',address:v.address||'',access:'',first,services:[],commercial:false,archived:false,stage:'lead',leadAt:at,source:v.source,want:v.want,history:[]});
+  if(S.autos.estimate){const t=`Hi ${first}, this is Hunter with Prime Cut Lawn & Landscaping. Thanks for reaching out${v.want?' about '+v.want.toLowerCase():''}! When is a good time for me to stop by and take a look?`;S.msgs.push({who:'auto',ch:'Text',cust:id,t:'Today '+fmtT(now()),kind:'New lead reply',text:t});cust(id).leadReply=t}});
+ UI.tab='sales';UI.ef='open';render();return id}
+function leadSheet(id){const c=cust(id),st=c.stage,steps=[['lead','New'],['contacted','Contacted'],['visit','Site visit'],['quoted','Proposal']],ix=steps.findIndex(x=>x[0]===st);
+ sheet(`<div class="stack"><div><div class="sub sm">${esc(c.source||'Lead')} · ${sinceTxt(c.leadAt)}</div><h2>${esc(c.name)}</h2></div>
+ <div style="display:flex;gap:6px">${steps.map(([k,l],i)=>`<div style="flex:1;text-align:center;font-size:.75rem;font-weight:700;padding:6px 2px;border-radius:10px;background:${st==='lostlead'?'var(--line)':i<=ix?'#4ABC39':'var(--mint)'};color:${i<=ix&&st!=='lostlead'?'#fff':'var(--deep)'}">${l}</div>`).join('')}</div>
+ <div class="card">${[['Wants',c.want],['Phone',c.phone],['Email',c.email],['Address',c.address],['Site visit',c.visitAt?fmtDT(c.visitAt):''],['Lost because',st==='lostlead'?c.lostWhy:'']].filter(x=>x[1]).map(([l,v])=>`<div class="item" style="cursor:default"><div class="grow"><div class="d">${l}</div><div class="t" style="white-space:normal">${esc(v)}</div></div></div>`).join('')}</div>
+ ${c.leadReply?`<div class="card"><div class="sub sm">Automatic text sent</div><div style="font-size:.92rem;line-height:1.45">${esc(c.leadReply)}</div></div>`:''}
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><a class="btn dark" href="tel:${normP(c.phone)}" data-a="leadtouch" data-id="${c.id}" style="text-decoration:none;display:flex;align-items:center;justify-content:center">Call</a><a class="btn dark" href="sms:${normP(c.phone)}" data-a="leadtouch" data-id="${c.id}" style="text-decoration:none;display:flex;align-items:center;justify-content:center">Text</a></div>
+ ${st==='lostlead'?`<button class="btn full go" data-a="leadstage" data-id="${c.id}" data-k="lead">Reopen lead</button>`:`
+ ${st==='lead'?`<button class="btn full" data-a="leadstage" data-id="${c.id}" data-k="contacted">Mark contacted</button>`:''}
+ <div class="field"><label for="ld-v">${c.visitAt?'Change site visit':'Book a site visit'}</label><div style="display:flex;gap:8px"><input id="ld-v" type="datetime-local" value="${c.visitAt?c.visitAt.slice(0,16):''}" style="flex:1"><button class="btn dark" data-a="leadvisit" data-id="${c.id}">Save</button></div></div>
+ <button class="btn full big go" data-a="profest" data-id="${c.id}">Build the proposal</button>
+ <div class="field"><label for="ld-l">Not moving forward?</label><div style="display:flex;gap:8px"><select id="ld-l" style="flex:1">${LOSTWHY.map(x=>`<option>${x}</option>`).join('')}</select><button class="btn redb" data-a="leadlost" data-id="${c.id}">Mark lost</button></div></div>`}
+ <button class="btn full" data-a="custsheet" data-id="${c.id}">Open full profile</button></div>`)}
 function sales(){
  const out=S.estimates.filter(e=>e.status==='sent'),won=S.estimates.filter(e=>e.status==='approved'),decided=S.estimates.filter(e=>e.status!=='sent');
  const cl=callList();
@@ -812,10 +867,14 @@ function sales(){
   <div class="stat" style="cursor:default"><b class="num">${money(sum(won,estTotal))}</b><span>Won this season</span></div>
   <div class="stat" style="cursor:default"><b class="num">${decided.length?Math.round(won.length/decided.length*100):0}%</b><span>Close rate</span></div>
  </div>
+ <div class="sec"><h2>Sales funnel</h2><button class="btn sm go" data-a="newlead">+ New lead</button></div>
+ ${funnelCard()}
+ <input class="search" id="eq" type="search" placeholder="Search name, street, phone, title or #" value="${esc(UI.eq||'')}" aria-label="Search leads and proposals">
+ <div class="fchips">${STAGES.map(([k,l])=>`<button class="fchip" data-a="efilter" data-t="${k}" aria-pressed="${(UI.ef||'open')===k}">${l} <span style="opacity:.7">${deals(k).length}</span></button>`).join('')}</div>
+ <div class="card" id="elist">${estRows()}</div>
+ <button class="link" data-a="weblead" style="align-self:center">Preview: get a sample website lead</button>
  <div class="sec"><h2>Who to call</h2><span class="sub sm">${cl.length} ideas</span></div>
  <div class="card">${cl.length?cl.map(x=>`<div class="item" style="cursor:default;align-items:flex-start"><div class="ico green">${ic('tag',20)}</div><div class="grow"><div class="t" style="white-space:normal">${esc(x.t)}</div><div class="d" style="white-space:normal">${esc(x.d)}</div><div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="btn sm dark" data-a="offer" data-k="${esc(x.k)}">Text the offer</button><span class="sub sm" style="align-self:center">about ${money(x.val)}</span></div></div></div>`).join(''):'<div class="sub sm">Everyone has been offered everything. Nice.</div>'}</div>
- <div class="sec"><h2>Estimates</h2></div>
- <div class="card">${S.estimates.slice().reverse().map(e=>`<button class="item" data-a="estsheet" data-id="${e.id}"><div class="grow"><div class="t">#${e.id} · ${esc(e.title)}</div><div class="d">${esc(cust(e.cust).name)} · ${money(estTotal(e))}</div></div><span class="chip ${({approved:'c-green',sent:'c-amber',lost:'c-gray'})[e.status]}">${({approved:'Approved',sent:'Waiting',lost:'Lost'})[e.status]}</span><span class="chev">${ic('chev',18)}</span></button>`).join('')}</div>
  <div class="sec"><h2>Price book</h2><span class="sub sm">${allItems().length} items · <button class="link" data-a="edititem" data-id="" style="padding:0">+ Add item</button></span></div>
  <div class="sub sm" style="margin-top:-8px">Every service with the national average range, plus plants for Northern Kentucky. "Your price" starts at the middle of the range. Tap + to start an estimate.</div>
  ${catalog('browse')}
@@ -1053,7 +1112,7 @@ const A={
  measure:d=>{MS.cust=null;UI.mcust=d.id;UI.mback=UI.tab==='est'?'est':'cust';UI.pts=[];UI.closed=false;close();UI.tab='measure';render();scrollTo(0,0)},
  mback:()=>{delete S.pendingMeasure;save();if(UI.mback==='est'){UI.tab='est';render()}else custSheet(UI.mcust)},
  pback:()=>{UI.tab=UI.pback||'cust';render();scrollTo(0,0)},
- profest:d=>{UI.draft={cust:d.id,title:'',lines:{}};UI.eback=d.id;UI.tab='est';render();scrollTo(0,0)},
+ profest:d=>{close();UI.draft={cust:d.id,title:'',lines:{}};UI.eback=d.id;UI.tab='est';render();scrollTo(0,0)},
  photoview:d=>photoView(d.id),
  docopen:d=>docSheet(d.id,d.k,false), mydoc:d=>docSheet(meP().id,d.k,true), bypass:d=>bypassSheet(d.id,d.k),
  unbypass:d=>{const p=person(d.id);commit('Skip removed',()=>{delete p.docBypass[d.k]});docSheet(d.id,d.k,false)},
@@ -1095,10 +1154,18 @@ const A={
   if(!d.title.trim())return sheet(`<div class="stack"><h2>Name the project</h2><div class="sub">Give it a short name, like "Front bed makeover", so the customer knows what it's for.</div><button class="btn full big go" data-a="close">OK</button></div>`);
   if(!n)return sheet(`<div class="stack"><h2>Add something first</h2><div class="sub">Add at least one plant, material or labor line.</div><button class="btn full big go" data-a="close">OK</button></div>`);
   const id=Math.max(...S.estimates.map(e=>e.id))+1,c=cust(d.cust),lines={};Object.entries(d.lines).forEach(([k,v])=>{if(v>0)lines[k]=v});
-  const back=UI.eback===d.cust;UI.tab=back?'cust':'sales';commit(`Estimate #${id} sent to ${c.name}`,()=>{S.estimates.push({id,cust:d.cust,title:d.title.trim(),status:'sent',sentAgo:'today',date:new Date().toISOString(),lines,photos:{...(d.photos||{})}});S.msgs.push({who:'auto',ch:'Email',t:'Today '+fmtT(now()),kind:'Estimate',text:`Hi ${c.first}, here is your estimate #${id} for ${d.title.trim().toLowerCase()}: ${money(estTotal({lines}))}. Tap the link to approve it. (estimate link)`})});if(back)custSheet(d.cust);scrollTo(0,0)},
+  const back=UI.eback===d.cust;UI.tab=back?'cust':'sales';commit(`Estimate #${id} sent to ${c.name}`,()=>{if(LEADST.includes(c.stage))c.stage='quoted';S.estimates.push({id,cust:d.cust,title:d.title.trim(),status:'sent',sentAgo:'today',date:new Date().toISOString(),lines,photos:{...(d.photos||{})}});S.msgs.push({who:'auto',ch:'Email',t:'Today '+fmtT(now()),kind:'Estimate',text:`Hi ${c.first}, here is your estimate #${id} for ${d.title.trim().toLowerCase()}: ${money(estTotal({lines}))}. Tap the link to approve it. (estimate link)`})});if(back)custSheet(d.cust);scrollTo(0,0)},
  estsheet:d=>estSheet(d.id),
  approve:d=>{const e=S.estimates.find(x=>x.id==d.id),hrs_=e.lines.m3||4,need=Math.min(480,hrs_*60),day_=[1,2,3,4].find(x=>booked('c1',x)+need+15<=540)||5;close();commit(`#${e.id} approved and put on the schedule`,()=>{e.status='approved';const last=crewDay('c1',day_).slice(-1)[0];S.jobs.push({id:'j'+Date.now(),cust:e.cust,crew:'c1',day:day_,service:'Landscape install',price:estTotal(e),est:need,start:last?last.start+last.est+15:450,status:'todo',startedAt:null,doneAt:null,why:'',checks:{},photo:false});S.msgs.push({who:'auto',ch:'Text',t:'Today '+fmtT(now()),kind:'Estimate approved',text:`Thanks ${cust(e.cust).first}! Your ${e.title.toLowerCase()} is on our schedule for ${day_<5?dayName(day_):'next week'}. We'll text you the day before.`})})},
- lose:d=>{const e=S.estimates.find(x=>x.id==d.id);close();commit(`#${e.id} marked lost`,()=>{e.status='lost'})},
+ efilter:d=>{UI.ef=d.t;document.querySelectorAll('.fchip[data-a="efilter"]').forEach(c=>c.setAttribute('aria-pressed',c.dataset.t===d.t));$('#elist').innerHTML=estRows();if(d.t)$('#eq').scrollIntoView({block:'start',behavior:'smooth'})},
+ newlead:()=>leadForm(), leadsheet:d=>leadSheet(d.id),
+ leadstage:d=>{const c=cust(d.id);commit(d.k==='lead'?'Lead reopened':'Marked contacted',()=>{c.stage=d.k;if(d.k==='lead')c.leadAt=c.leadAt||new Date().toISOString()});leadSheet(d.id)},
+ leadtouch:d=>{const c=cust(d.id);if(c.stage==='lead'){c.stage='contacted';save()}},
+ leadvisit:d=>{const v=$('#ld-v').value;if(!v){toast('Pick a day and time');return}const c=cust(d.id);commit(`Site visit booked for ${fmtDT(v)}`,()=>{c.stage='visit';c.visitAt=v});if(S.autos.estimate){S.msgs.push({who:'auto',ch:'Text',cust:c.id,t:'Today '+fmtT(now()),kind:'Site visit confirmation',text:`Hi ${c.first||c.name}, you're all set. Hunter from Prime Cut will stop by ${fmtDT(v)} to take a look. Reply here if you need to change the time.`});save()}leadSheet(d.id)},
+ leadlost:d=>{const c=cust(d.id),w=$('#ld-l').value;close();commit(`${c.name} marked lost`,()=>{c.stage='lostlead';c.lostWhy=w;c.lostAt=new Date().toISOString()});render()},
+ weblead:()=>{const n=[['Morgan Ellis','(859) 555-0172','Hebron','new patio and front beds'],['Tyler Brooks','(859) 555-0118','Burlington','weekly mowing'],['Dana Price','(859) 555-0136','Erlanger','spring cleanup and mulch']].find(x=>!S.customers.some(c=>normP(c.phone)===normP(x[1])));if(!n){toast('All sample website leads are already in');return}saveLead({name:n[0],phone:n[1],email:'',address:'',source:'Website form',want:n[3]},true);toast('New website lead: '+n[0])},
+ lose:d=>sheet(`<div class="stack"><h2>Why did they say no?</h2><div class="opts">${LOSTWHY.map(w=>`<button class="opt" data-a="losewhy" data-id="${d.id}" data-k="${w}">${w}</button>`).join('')}</div><button class="btn full" data-a="estsheet" data-id="${d.id}">Back</button></div>`),
+ losewhy:d=>{const e=S.estimates.find(x=>x.id==d.id);close();commit(`#${e.id} marked lost`,()=>{e.status='lost';e.lostWhy=d.k})},
  offer:d=>{const x=callList().find(y=>y.k===d.k);commit('Offer texted. Replies land in Messages.',()=>{S.offered.push(x.k);S.msgs.push({who:'us',ch:'Text',t:'Today '+fmtT(now()),text:x.msg})})},
  openthread:()=>{UI.tab='thread';render();scrollTo(0,document.body.scrollHeight)},
  futoggle:d=>{const e=S.estimates.find(x=>x.id==d.id);e.fuOff=!e.fuOff;save();estSheet(e.id);toast(e.fuOff?'Follow-ups off for this estimate':'Follow-ups back on')},
@@ -1145,7 +1212,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
 document.addEventListener('submit',e=>{e.preventDefault();const f=e.target;
  if(f.id==='sendform'){const v=$('#msgin').value.trim();if(!v)return;S.msgs.push({who:'us',ch:'Text',t:'Today '+fmtT(now()),text:v});save();render();scrollTo(0,document.body.scrollHeight);$('#msgin').focus();return}
  if(f.id==='mform'){const sq=Math.round(+$('#m-sq').value),ft=Math.round(+$('#m-ft').value);if(!(sq>0)||!(ft>0)){$('#merr').innerHTML='<div class="err">Enter both numbers from the satellite tool.</div>';return}const c=cust(UI.mcust);UI.tab=UI.mback==='est'?'est':'cust';commit(`Saved ${sq.toLocaleString()} sq ft for ${c.name}`,()=>{delete S.pendingMeasure;c.lawnSqft=sq;c.perimFt=ft});if(UI.mback!=='est')custSheet(c.id);return}
- if(f.id==='jobform')saveJob();if(f.id==='custform')saveCust();if(f.id==='itemform')saveItem();if(f.id==='hireform')saveHire();if(f.id==='docform')saveDoc();if(f.id==='bypassform'){const pid=f.dataset.id,k=f.dataset.k,r=$('#bp-r').value.trim();if(!r)return bypassSheet(pid,k,'Add a short reason.');const p=person(pid);close();commit('Paper skipped by manager',()=>{p.docBypass=p.docBypass||{};p.docBypass[k]={by:'Hunter',reason:r,at:new Date().toISOString()}});UI.person=pid;UI.tab='person';render()}if(f.id==='letgoform')saveLetGo();
+ if(f.id==='jobform')saveJob();if(f.id==='custform')saveCust();if(f.id==='itemform')saveItem();if(f.id==='hireform')saveHire();if(f.id==='docform')saveDoc();if(f.id==='leadform')saveLead({name:$('#ld-n').value.trim(),phone:$('#ld-p').value.trim(),email:$('#ld-e').value.trim(),address:$('#ld-a').value.trim(),source:$('#ld-s').value,want:$('#ld-w').value.trim()});if(f.id==='bypassform'){const pid=f.dataset.id,k=f.dataset.k,r=$('#bp-r').value.trim();if(!r)return bypassSheet(pid,k,'Add a short reason.');const p=person(pid);close();commit('Paper skipped by manager',()=>{p.docBypass=p.docBypass||{};p.docBypass[k]={by:'Hunter',reason:r,at:new Date().toISOString()}});UI.person=pid;UI.tab='person';render()}if(f.id==='letgoform')saveLetGo();
  if(f.id==='probform'){const t=$('#pt').value.trim();if(!t){$('#perr').innerHTML=`<div class="err">${tr('Write a few words about what happened.','Escriba unas palabras sobre lo que pasó.')}</div>`;return}
   const kind=f.querySelector('.opt[aria-pressed="true"]').dataset.w,j=job(f.dataset.id);close();commit(tr('Sent. Hunter will see it right away.','Enviado. Hunter lo verá de inmediato.'),()=>S.problems.push({kind,text:t,where:cust(j.cust).address.split(',')[0]}))}});
 document.addEventListener('change',async e=>{const el=e.target,f=el.files?.[0];if(!f)return;
@@ -1155,13 +1222,13 @@ document.addEventListener('change',async e=>{const el=e.target,f=el.files?.[0];i
  if(el.dataset.c==='cphoto'){const c=cust(el.dataset.id);if(await keepPhoto(f,{cust:c.id,label:'Photo'})){render();toast(`Photo saved to ${c.name}`)}else toast("That photo couldn't be saved")}
  if(el.dataset.c==='lphoto'){const d=UI.draft,it=plant(el.dataset.id);const n=(S.photos||[]).length;if(await keepPhoto(f,{cust:d.cust,label:'Estimate photo · '+it.name})){d.photos=d.photos||{};d.photos[el.dataset.id]=S.photos[S.photos.length-1].id;render();toast('Photo attached. It is also saved on the customer.')}}
 });
-document.addEventListener('input',e=>{if(e.target.id==='pq'){UI.pq=e.target.value;UI.pall=false;if(UI.pq&&UI.ptype!=='All'){UI.ptype='All';document.querySelectorAll('.fchip').forEach(c=>c.setAttribute('aria-pressed',c.dataset.t==='All'))}$('#plist').innerHTML=itemRows(catList(),e.target.dataset.mode);return}
+document.addEventListener('input',e=>{if(e.target.id==='eq'){UI.eq=e.target.value;$('#elist').innerHTML=estRows();return}if(e.target.id==='pq'){UI.pq=e.target.value;UI.pall=false;if(UI.pq&&UI.ptype!=='All'){UI.ptype='All';document.querySelectorAll('.fchip').forEach(c=>c.setAttribute('aria-pressed',c.dataset.t==='All'))}$('#plist').innerHTML=itemRows(catList(),e.target.dataset.mode);return}
  if(e.target.dataset.c==='draft'){if(e.target.value==='__new'){e.target.value=UI.draft.cust;addCust();return}UI.draft[e.target.dataset.k]=e.target.value;if(e.target.dataset.k==='cust')render();return}
  if(e.target.dataset.c==='lineqty'||e.target.dataset.c==='myprice'){const id=e.target.dataset.id,v=parseFloat(e.target.value);if(isNaN(v)||v<0)return;if(e.target.dataset.c==='lineqty')UI.draft.lines[id]=v;else{S.myPrice=S.myPrice||{};S.myPrice[id]=v;save()}const tot=sum(Object.entries(UI.draft.lines).filter(([,n])=>n>0),([i,n])=>priceOf(i)*n);$('#esttot').textContent=money(tot);const lt=document.getElementById('lt-'+id);if(lt)lt.textContent=money(priceOf(id)*(UI.draft.lines[id]||0));return}
  if(e.target.id==='q'){UI.q=e.target.value;$('#clist').innerHTML=custRows()}
  if(e.target.id==='m-paste'&&e.target.value.trim()){if(!applyPCM(e.target.value,UI.mcust)){e.target.value='';toast("That isn't a measurement. Save the area in the satellite tool first.")}}});
 addEventListener('hashchange',readHashPCM);
-document.addEventListener('click',e=>{if(e.target.closest('a[data-a="mopen"]')){S.pendingMeasure={cust:UI.mcust,back:UI.mback,at:Date.now()};save()}},true);
+document.addEventListener('click',e=>{const lt=e.target.closest('a[data-a="leadtouch"]');if(lt){const c=cust(lt.dataset.id);if(c&&c.stage==='lead'){c.stage='contacted';save();setTimeout(()=>{if(!$('#sheetwrap').hidden)leadSheet(c.id)},300)}}if(e.target.closest('a[data-a="mopen"]')){S.pendingMeasure={cust:UI.mcust,back:UI.mback,at:Date.now()};save()}},true);
 addEventListener('message',e=>{const t=typeof e.data==='string'?e.data:'';if(t.startsWith('PRIMECUT-MEASURE'))applyPCM(t,UI.mcust)});
 setInterval(()=>{if(runFollowups()&&$('#sheetwrap').hidden)render()},60000);
 setInterval(()=>{if($('#sheetwrap').hidden&&!['cust','thread','est','measure','sales','profile'].includes(UI.tab))render()},60000);
