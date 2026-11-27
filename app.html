@@ -161,10 +161,28 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .total{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--head);font-weight:800;font-size:1.4rem}
 .tag{font-size:.7rem;font-weight:700;padding:2px 7px;border-radius:6px;background:var(--mint);color:var(--deep);margin-left:4px;vertical-align:middle}
 .foot{font-size:.8rem;color:var(--sub);text-align:center;padding:10px 0}
+
+.menubtn{width:44px;height:44px;border:0;background:none;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--deep);margin-left:-8px;flex:none}
+.drawerwrap{position:fixed;inset:0;z-index:60;background:rgba(10,30,15,.35)}
+.drawer{position:absolute;top:0;bottom:0;left:0;width:min(300px,84vw);background:var(--card);box-shadow:4px 0 24px rgba(0,0,0,.18);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);animation:din .18s ease-out}
+@keyframes din{from{transform:translateX(-100%)}to{transform:none}}
+.drawer .dscroll{overflow-y:auto;flex:1;padding:8px 10px 16px}
+.drawer .dhead{display:flex;align-items:center;gap:10px;padding:14px 16px 10px;border-bottom:1px solid var(--line)}
+.drawer h4{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);margin:16px 10px 4px;font-weight:700}
+.drawer .di{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;padding:0 10px;border:0;background:none;border-radius:12px;font:inherit;font-size:.95rem;color:var(--ink,#16251a);cursor:pointer;text-align:left}
+.drawer .di svg{color:var(--sub);flex:none}
+.drawer .di[aria-current="page"]{background:var(--green);color:#fff;font-weight:700}
+.drawer .di[aria-current="page"] svg{color:#fff}
+.drawer .di .new{margin-left:auto;font-size:.68rem;font-weight:700;background:var(--green);color:#fff;border-radius:6px;padding:2px 6px}
+.drawer .dset{border-top:1px solid var(--line);background:var(--deep);color:#fff}
+.drawer .dset>.di{color:#fff;min-height:52px;border-radius:0;padding:0 18px}
+.drawer .dset>.di svg{color:#fff}
+.drawer .dsub{background:var(--card);max-height:46vh;overflow-y:auto;padding:6px 10px 10px}
 </style>
 
 <div class="app">
   <header class="top">
+    <button class="menubtn" id="menubtn" data-a="menu" aria-label="Open menu"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="logo"><img src="data:image/png;base64,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" alt="Prime Cut"><div><b>PRIME CUT</b><small>LAWN &amp; LANDSCAPING</small></div></div>
     <div class="seg" role="group" aria-label="View as">
       <button data-a="as" data-r="owner" id="as-owner">Owner</button>
@@ -178,6 +196,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 <button class="fab" id="fab" data-a="addjob" aria-label="Add a job" hidden><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
 <div class="sheetwrap" id="sheetwrap" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
 <div class="toast" id="toast" hidden></div>
+<div class="drawerwrap" id="drawerwrap" hidden></div>
 
 <script>
 (function(){
@@ -193,6 +212,13 @@ const dd=d=>{const x=new Date();x.setDate(x.getDate()+d);return x};
 const dayName=d=>d===0?'Today':d===1?'Tomorrow':dd(d).toLocaleDateString(undefined,{weekday:'long'});
 const normP=p=>p.replace(/\D/g,'').slice(-10), normA=a=>a.toLowerCase().split(',')[0].replace(/[^a-z0-9]/g,'').replace(/street$/,'st').replace(/drive$/,'dr').replace(/road$/,'rd').replace(/avenue$/,'ave');
 const I={
+ gear:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+ money:'<path d="M12 3v18M17 7H9.5a3 3 0 0 0 0 6h5a3 3 0 0 1 0 6H6"/>',
+ mega:'<path d="M3 10v4h4l7 4V6L7 10zM18 9a4 4 0 0 1 0 6"/>',
+ route:'<circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.5"/>',
+ book:'<path d="M4 4h10a4 4 0 0 1 4 4v12H8a4 4 0 0 1-4-4z"/><path d="M8 20a4 4 0 0 1 0-8h10"/>',
+ bolt:'<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+ building:'<path d="M4 21V5l8-3v19M12 21h8V9l-8-3"/><path d="M7 8h2M7 12h2M7 16h2M15 12h2M15 16h2"/>',
  tag:'<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/>',leaf:'<path d="M5 19C5 9 11 4 20 4c0 9-5 15-15 15z"/><path d="M5 19 13 11"/>',
  chat:'<path d="M4 5h16v11H9l-5 4z"/>',send:'<path d="M4 12 20 4l-6 16-3-7z"/>',
  warn:'<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17v.5"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
@@ -291,7 +317,7 @@ function home(){
   <button class="stat ${iss.length?'alert':''}" data-a="scrollTo" data-id="needs"><b class="num">${iss.length}</b><span>Need you</span></button>
  </div>
  ${iss.length?`<div class="sec" id="needs"><h2>Needs you</h2></div><div class="card">${iss.slice(0,4).map(x=>`<div class="item" style="cursor:default"><div class="ico ${x.k}">${ic(x.i,20)}</div><div class="grow"><div class="t">${esc(x.t)}</div><div class="d">${esc(x.d)}</div>${x.act?`<button class="btn sm dark" style="margin-top:8px" data-a="${x.act.a}" data-id="${x.act.id}">${x.act.l}</button>`:''}</div></div>`).join('')}</div>`:`<div class="card sub" id="needs">All clear. Nothing needs you right now.</div>`}
- <div class="sec"><h2>Crews</h2><span><button class="link" data-a="tab" data-t="team">Team</button> · <button class="link" data-a="tab" data-t="fleet">Fleet</button> · <button class="link" data-a="tab" data-t="sched">Schedule</button></span></div>
+ <div class="sec" id="crews"><h2>Crews</h2><span><button class="link" data-a="tab" data-t="team">Team</button> · <button class="link" data-a="tab" data-t="fleet">Fleet</button> · <button class="link" data-a="tab" data-t="sched">Schedule</button></span></div>
  <div class="card">${S.crews.map(c=>{const s=crewInfo(c.id);return `<button class="item" data-a="crewsheet" data-id="${c.id}"><div class="av" style="background:${c.color}">${c.name.slice(-1)}</div><div class="grow"><div class="t">${c.name} <span class="sub" style="font-weight:500">· ${c.lead}</span></div><div class="d">${s.cur?'At '+esc(cust(s.cur.cust).address.split(',')[0]):'Between stops'} · done by ${fmtT(s.finish)}</div><div class="mini">${s.js.map(j=>`<i style="flex:1;background:${j.status==='done'?'var(--green)':j.status==='now'?'#A6DE9C':j.status==='skipped'?'var(--red)':'transparent'}"></i>`).join('')}</div></div><span class="chip ${s.behind?'c-amber':'c-green'}">${s.behind?'Behind':'On pace'}</span></button>`}).join('')}</div>
  </div>`;
 }
@@ -871,15 +897,15 @@ function sales(){
   <div class="stat" style="cursor:default"><b class="num">${decided.length?Math.round(won.length/decided.length*100):0}%</b><span>Close rate</span></div>
  </div>
  ${goalCard()}
- <div class="sec"><h2>Sales funnel</h2><button class="btn sm go" data-a="newlead">+ New lead</button></div>
+ <div class="sec" id="funnel"><h2>Sales funnel</h2><button class="btn sm go" data-a="newlead">+ New lead</button></div>
  ${funnelCard()}
  <input class="search" id="eq" type="search" placeholder="Search name, street, phone, title or #" value="${esc(UI.eq||'')}" aria-label="Search leads and proposals">
  <div class="fchips">${STAGES.map(([k,l])=>`<button class="fchip" data-a="efilter" data-t="${k}" aria-pressed="${(UI.ef||'open')===k}">${l} <span style="opacity:.7">${deals(k).length}</span></button>`).join('')}</div>
  <div class="card" id="elist">${estRows()}</div>
  <button class="link" data-a="weblead" style="align-self:center">Preview: get a sample website lead</button>
- <div class="sec"><h2>Who to call</h2><span class="sub sm">${cl.length} ideas</span></div>
+ <div class="sec" id="whocall"><h2>Who to call</h2><span class="sub sm">${cl.length} ideas</span></div>
  <div class="card">${cl.length?cl.map(x=>`<div class="item" style="cursor:default;align-items:flex-start"><div class="ico green">${ic('tag',20)}</div><div class="grow"><div class="t" style="white-space:normal">${esc(x.t)}</div><div class="d" style="white-space:normal">${esc(x.d)}</div><div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="btn sm dark" data-a="offer" data-k="${esc(x.k)}">Text the offer</button><span class="sub sm" style="align-self:center">about ${money(x.val)}</span></div></div></div>`).join(''):'<div class="sub sm">Everyone has been offered everything. Nice.</div>'}</div>
- <div class="sec"><h2>Price book</h2><span class="sub sm">${allItems().length} items · <button class="link" data-a="edititem" data-id="" style="padding:0">+ Add item</button></span></div>
+ <div class="sec" id="pricebook"><h2>Price book</h2><span class="sub sm">${allItems().length} items · <button class="link" data-a="edititem" data-id="" style="padding:0">+ Add item</button></span></div>
  <div class="sub sm" style="margin-top:-8px">Every service with the national average range, plus plants for Northern Kentucky. "Your price" starts at the middle of the range. Tap + to start an estimate.</div>
  ${catalog('browse')}
  </div>`}
@@ -891,7 +917,7 @@ async function estPDF(id){const {jsPDF}=await loadPDF();const e=S.estimates.find
  const doc=new jsPDF({unit:'pt',format:'letter'}),W=612,M=48,G=[41,133,58],LG=[74,188,57],INK=[22,36,26],SUB=[100,112,104];let y=M;
  const logo=document.querySelector('img[src^="data:image/png"]');try{if(logo)doc.addImage(logo.src,'PNG',M,y-6,40,37)}catch(_){}
  doc.setFont('helvetica','bold');doc.setFontSize(18);doc.setTextColor(...G);doc.text('PRIME CUT',M+50,y+10);
- doc.setFontSize(8.5);doc.setTextColor(...SUB);doc.text('LAWN & LANDSCAPING',M+50,y+24);doc.text('Northern Kentucky  ·  primecutlawnky.com',M+50,y+35);
+ doc.setFontSize(8.5);doc.setTextColor(...SUB);doc.text('LAWN & LANDSCAPING',M+50,y+24);doc.text([CO().phone,CO().web||'primecutlawnky.com'].filter(Boolean).join('  ·  ')||'Northern Kentucky',M+50,y+35);
  doc.setFontSize(22);doc.setTextColor(...INK);doc.text('Estimate',W-M,y+10,{align:'right'});
  doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(...SUB);
  const made=e.date?new Date(e.date):new Date(),valid=new Date(made.getTime()+30*864e5),fd=d=>d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
@@ -1154,6 +1180,36 @@ function woView(jid){const j=job(jid),e=S.estimates.find(x=>x.id===j.estId),k=cu
  <div class="sub sm">${T('Suggested from the estimate. Use your judgment on site.','Sugerido según el presupuesto. Use su criterio en el sitio.')}</div>
  <button class="btn full" data-a="close">${T('Close','Cerrar')}</button></div>`}
 
+
+/* ---------------- OWNER MENU (DripJobs-style drawer) ---------------- */
+const MENU=[
+ ['',[['Home','home','home'],['Customers','people','cust'],['Sales funnel','tag','sales','funnel']]],
+ ['Jobs',[['Job schedule','cal','sched'],['Work orders','doc','wolist'],['Routes','route','route']]],
+ ['Daily operations',[['Messages','chat','msgs'],['Team','people','team'],['Fleet','truck','fleet'],['Fleet audit','check','','','audit']]],
+ ['Documents',[['Proposals','doc','sales','funnel'],['Price book','book','sales','pricebook']]],
+ ['Financials',[['Pricing and yearly goal','money','pricing'],['QuickBooks','link','','','qbo']]],
+ ['Marketing',[['New lead','mega','','','newlead'],['Who to call','phone','sales','whocall'],['Automatic messages','bolt','msgs','autos']]]];
+const MSET=[['Company settings','building','company'],['Crews','people','home','crews'],['Employees','people','team'],['Products and services','book','sales','pricebook'],['Reminders and automations','bolt','msgs','autos'],['Fleet and equipment','truck','fleet'],['QuickBooks','link','','','qbo']];
+function menuHTML(){const cur=UI.tab==='asset'?'fleet':UI.tab==='person'?'team':UI.tab==='est'?'sales':UI.tab;let seen=false;
+ const it=([l,i,t,sc,x])=>{const on=!seen&&!x&&!sc&&t===cur;if(on)seen=true;return `<button class="di" data-a="go" data-t="${t}" data-s="${sc||''}" data-x="${x||''}" ${on?'aria-current="page"':''}>${ic(i,19)}<span>${l}</span></button>`};
+ return `<nav class="drawer" aria-label="Menu"><div class="dhead"><b style="font-family:var(--head);font-size:1.05rem;color:var(--deep)">Prime Cut</b><span class="sub sm">Hunter · Owner</span><button class="menubtn" data-a="menuclose" aria-label="Close menu" style="margin-left:auto">${ic('x',20)}</button></div>
+ <div class="dscroll">${MENU.map(([h,items])=>`${h?`<h4>${h}</h4>`:''}${items.map(it).join('')}`).join('')}</div>
+ <div class="dset"><button class="di" data-a="menuset" aria-expanded="${!!UI.mset}">${ic('gear',19)}<span>Settings</span><span style="margin-left:auto;transform:rotate(${UI.mset?90:-90}deg);display:flex">${ic('chev',16)}</span></button>
+ ${UI.mset?`<div class="dsub">${MSET.map(it).join('')}</div>`:''}</div></nav>`}
+function openMenu(){const w=$('#drawerwrap');w.innerHTML=menuHTML();w.hidden=false;document.body.style.overflow='hidden'}
+function closeMenu(){const w=$('#drawerwrap');w.hidden=true;w.innerHTML='';document.body.style.overflow=''}
+function wolist(){const js=S.jobs.filter(j=>j.estId&&S.estimates.some(e=>e.id===j.estId)).sort((a,b)=>(a.status==='done')-(b.status==='done')||a.day-b.day);
+ return `<div class="stack"><h1>Work orders</h1><div class="sub">Made automatically when a customer says yes. The crew leader sees each one on their phone.</div>
+ <div class="card">${js.length?js.map(j=>{const e=S.estimates.find(x=>x.id===j.estId),k=cust(j.cust),mats=Object.keys(e.lines).filter(id=>e.lines[id]>0&&MATS(plant(id))),ld=mats.filter(id=>(j.load||{})[id]).length;
+  return `<button class="item" data-a="wo" data-id="${j.id}"><div class="ico ${j.status==='done'?'green':'blue'}">${ic(j.status==='done'?'check':'doc',18)}</div><div class="grow"><div class="t">${esc(e.title)}</div><div class="d">${esc(k.name)} · ${esc(dayName(j.day))} · ${esc(crew(j.crew).name)}${mats.length?` · ${ld}/${mats.length} loaded`:''}</div></div>${pill(j)}<span class="chev">${ic('chev',16)}</span></button>`}).join(''):'<div class="sub sm">No work orders yet. One is made when a customer says yes to an estimate.</div>'}</div></div>`}
+function CO(){if(!S.company)S.company={name:'Prime Cut Lawn & Landscaping',short:'Prime Cut',phone:'',email:'',web:'primecutlawnky.com',review:'',addr:'',city:'',state:'KY',zip:'',license:'',tax:''};return S.company}
+function company(){const c=CO(),f=(k,l,t='text',ph='')=>`<div class="field"><label for="co-${k}">${l}</label><input id="co-${k}" type="${t}" value="${esc(c[k]||'')}" placeholder="${ph}" data-c="co" data-k="${k}"></div>`,two=(a,b)=>`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${a}${b}</div>`;
+ return `<div class="stack"><button class="back" data-a="tab" data-t="home">${ic('back',18)} Home</button><h1>Company settings</h1><div class="sub">Shows on estimates, PDFs and customer messages. Saves as you type.</div>
+ <div class="sec"><h2>Company details</h2></div><div class="card stack" style="gap:10px">${f('name','Company name')}${f('short','Short name')}${two(f('phone','Phone','tel','(859) 555-0100'),f('email','Email','email'))}${f('license','License number')}</div>
+ <div class="sec"><h2>Address</h2></div><div class="card stack" style="gap:10px">${f('addr','Street address')}${two(f('city','City'),f('state','State'))}${two(f('zip','ZIP'),f('tax','Sales tax rate (%)','number','6'))}</div>
+ <div class="sec"><h2>Online</h2></div><div class="card stack" style="gap:10px">${f('web','Website')}${f('review','Google review link','url','https://g.page/r/...')}</div>
+ <div class="sub sm">The Google review link goes in the automatic "leave us a review" text once real texting is set up.</div></div>`}
+
 /* ---------------- YARD MEASURE ---------------- */
 const FT=0.4; // feet per drawing unit in the sample aerial
 const EXAMPLE=[[12,12],[348,12],[348,255],[300,255],[300,70],[110,70],[110,160],[250,160],[250,255],[12,255]];
@@ -1290,7 +1346,7 @@ function upcoming(){const c=cust('k1'),out=[];
 function msgs(){const c=cust('k1'),last=S.msgs[S.msgs.length-1];
  return `<div class="stack"><h1>Messages</h1>
  <div class="card"><button class="item" data-a="openthread"><div class="av" style="background:var(--mint);color:var(--deep)">JH</div><div class="grow"><div class="t">${esc(c.name)}</div><div class="d">${esc(last.text)}</div></div>${S.unread?`<span class="badge">${S.unread}</span>`:''}<span class="chev">${ic('chev',18)}</span></button></div>
- <div class="sec"><h2>Sends on its own</h2></div>
+ <div class="sec" id="autos"><h2>Sends on its own</h2></div>
  <div class="card">${AUTOS.map(([k,l,w])=>`<div class="item" style="cursor:default"><div class="grow"><div class="t">${l}</div><div class="d">${w}</div></div><button class="link" data-a="previewauto" data-k="${k}" style="margin-right:6px">See it</button><button class="sw" role="switch" aria-label="${l}" aria-checked="${S.autos[k]}" data-a="toggleauto" data-k="${k}"></button></div>`).join('')}</div>
  <div class="sec"><h2>Coming up</h2></div>
  <div class="card">${upcoming().map(([l,w])=>`<div class="item" style="cursor:default"><div class="ico blue">${ic('clock',20)}</div><div class="grow"><div class="t">${l} to ${esc(c.first)}</div><div class="d">${w}</div></div></div>`).join('')||'<div class="sub sm">Nothing scheduled.</div>'}</div>
@@ -1304,13 +1360,14 @@ function thread(){const c=cust('k1');
 /* ---------------- shell ---------------- */
 function tabs(){return S.role==='owner'?[['home','Home','home'],['sched','Schedule','cal'],['cust','Customers','people'],['msgs','Messages','chat'],['sales','Sales','tag']]:[['today',tr('Today','Hoy'),'list'],['hours',tr('Hours','Horas'),'clock']]}
 function render(){
- const tb=tabs();if(!UI.tab||(!tb.some(x=>x[0]===UI.tab)&&UI.tab!=='job'&&UI.tab!=='thread'&&UI.tab!=='est'&&UI.tab!=='measure'&&UI.tab!=='profile'&&UI.tab!=='team'&&UI.tab!=='person'&&UI.tab!=='route'&&UI.tab!=='pricing'&&UI.tab!=='fleet'&&UI.tab!=='asset'))UI.tab=tb[0][0];
+ const tb=tabs();if(!UI.tab||(!tb.some(x=>x[0]===UI.tab)&&UI.tab!=='job'&&UI.tab!=='thread'&&UI.tab!=='est'&&UI.tab!=='measure'&&UI.tab!=='profile'&&UI.tab!=='team'&&UI.tab!=='person'&&UI.tab!=='route'&&UI.tab!=='pricing'&&UI.tab!=='fleet'&&UI.tab!=='asset'&&UI.tab!=='wolist'&&UI.tab!=='company'))UI.tab=tb[0][0];
  $('#as-owner').setAttribute('aria-pressed',S.role==='owner');$('#as-crew').setAttribute('aria-pressed',S.role==='crew');
- const cur=UI.tab==='job'?'today':UI.tab==='thread'?'msgs':UI.tab==='est'?'sales':UI.tab==='measure'?(UI.mback==='est'?'sales':'cust'):UI.tab==='profile'?(UI.pback||'cust'):UI.tab==='team'||UI.tab==='person'?'home':UI.tab==='route'?'sched':UI.tab==='pricing'?'sales':UI.tab==='fleet'||UI.tab==='asset'?'home':UI.tab;
+ const cur=UI.tab==='job'?'today':UI.tab==='thread'?'msgs':UI.tab==='est'?'sales':UI.tab==='measure'?(UI.mback==='est'?'sales':'cust'):UI.tab==='profile'?(UI.pback||'cust'):UI.tab==='team'||UI.tab==='person'?'home':UI.tab==='route'?'sched':UI.tab==='pricing'?'sales':UI.tab==='fleet'||UI.tab==='asset'||UI.tab==='company'?'home':UI.tab==='wolist'?'sched':UI.tab;
  if(UI.tab==='thread')S.unread=0;
  $('#tabs').innerHTML=tb.map(([v,l,i])=>`<button class="tab" data-a="tab" data-t="${v}" ${v===cur?'aria-current="page"':''} style="position:relative">${ic(i,22)}${l}${v==='msgs'&&S.unread?`<span class="badge" style="position:absolute;top:4px;right:18%">${S.unread}</span>`:''}</button>`).join('');
  $('#fab').hidden=!(S.role==='owner'&&UI.tab==='sched');
- $('#app').innerHTML=({home,sched,cust:custs,today,job:jobView,hours,msgs,thread,sales,est:estBuilder,measure,profile,team,person:personView,route,pricing,fleet,asset:assetView})[UI.tab]();
+ $('#app').innerHTML=({home,sched,cust:custs,today,job:jobView,hours,msgs,thread,sales,est:estBuilder,measure,profile,team,person:personView,route,pricing,fleet,asset:assetView,wolist,company})[UI.tab]();
+ $('#menubtn').hidden=S.role!=='owner';
  if(UI.tab==='measure'&&GM==='ok')setTimeout(mInit,0);
  if(UI.tab==='route'&&GM==='ok')setTimeout(rInit,0);
 }
@@ -1371,6 +1428,8 @@ const A={
  approve:d=>{const e=S.estimates.find(x=>x.id==d.id),hrs_=e.lines.m3||4,need=Math.min(480,hrs_*60),day_=[1,2,3,4].find(x=>booked('c1',x)+need+15<=540)||5;close();commit(`#${e.id} approved. Work order sent to ${crew('c1').lead||'the crew leader'}.`,()=>{e.status='approved';const last=crewDay('c1',day_).slice(-1)[0];S.jobs.push({id:'j'+Date.now(),estId:e.id,cust:e.cust,crew:'c1',day:day_,service:'Landscape install',price:estTotal(e),est:need,start:last?last.start+last.est+15:450,status:'todo',startedAt:null,doneAt:null,why:'',checks:{},photo:false});S.msgs.push({who:'auto',ch:'Text',t:'Today '+fmtT(now()),kind:'Estimate approved',text:`Thanks ${cust(e.cust).first}! Your ${e.title.toLowerCase()} is on our schedule for ${day_<5?dayName(day_):'next week'}. We'll text you the day before.`})})},
  efilter:d=>{UI.ef=d.t;document.querySelectorAll('.fchip[data-a="efilter"]').forEach(c=>c.setAttribute('aria-pressed',c.dataset.t===d.t));$('#elist').innerHTML=estRows();if(d.t)$('#eq').scrollIntoView({block:'start',behavior:'smooth'})},
  newlead:()=>leadForm(),
+ menu:()=>openMenu(), menuclose:()=>closeMenu(), menuset:()=>{UI.mset=!UI.mset;const sc=$('#drawerwrap .dscroll')?.scrollTop||0;openMenu();const d=$('#drawerwrap .dscroll');if(d)d.scrollTop=sc},
+ go:d=>{closeMenu();close();if(d.x){A[d.x]({});return}if(d.t==='route'&&!UI.rcrew)UI.rcrew=S.crews[0].id;UI.tab=d.t;render();if(d.s){setTimeout(()=>document.getElementById(d.s)?.scrollIntoView({block:'start'}),30)}else scrollTo(0,0)},
  wo:d=>sheet(woView(d.id)),
  woload:d=>{const j=job(d.id);j.load=j.load||{};j.load[d.k]=!j.load[d.k];save();const y=$('#sheet').scrollTop;sheet(woView(d.id));$('#sheet').scrollTop=y},
  asset:d=>{close();UI.asset=d.id;UI.tab='asset';render();scrollTo(0,0)}, assetform:d=>assetForm(d.id||null), svclog:d=>svcForm(d.id),
@@ -1430,6 +1489,7 @@ const A={
 document.addEventListener('click',e=>{const sv=e.target.closest('#yard');if(sv&&UI.tab==='measure'&&!UI.closed){const pt=sv.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const q=pt.matrixTransform(sv.getScreenCTM().inverse()),x=Math.round(Math.max(0,Math.min(360,q.x))),y=Math.round(Math.max(0,Math.min(300,q.y)));const f=UI.pts[0];if(f&&UI.pts.length>=3&&Math.hypot(f[0]-x,f[1]-y)<14)UI.closed=true;else UI.pts.push([x,y]);render();return}
  const el=e.target.closest('[data-a]');if(!el||el.tagName==='A')return;e.preventDefault();A[el.dataset.a]?.(el.dataset,el)});
 $('#sheetwrap').addEventListener('click',e=>{if(e.target.id==='sheetwrap')close()});
+$('#drawerwrap').addEventListener('click',e=>{if(e.target.id==='drawerwrap')closeMenu()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
 document.addEventListener('submit',e=>{e.preventDefault();const f=e.target;
  if(f.id==='sendform'){const v=$('#msgin').value.trim();if(!v)return;S.msgs.push({who:'us',ch:'Text',t:'Today '+fmtT(now()),text:v});save();render();scrollTo(0,document.body.scrollHeight);$('#msgin').focus();return}
@@ -1448,6 +1508,7 @@ document.addEventListener('change',async e=>{const el=e.target,f=el.files?.[0];i
 document.addEventListener('input',e=>{if(e.target.id==='eq'){UI.eq=e.target.value;$('#elist').innerHTML=estRows();return}if(e.target.id==='pq'){UI.pq=e.target.value;UI.pall=false;if(UI.pq&&UI.ptype!=='All'){UI.ptype='All';document.querySelectorAll('.fchip').forEach(c=>c.setAttribute('aria-pressed',c.dataset.t==='All'))}$('#plist').innerHTML=itemRows(catList(),e.target.dataset.mode);return}
  if(e.target.dataset.c==='draft'){if(e.target.value==='__new'){e.target.value=UI.draft.cust;addCust();return}UI.draft[e.target.dataset.k]=e.target.value;if(e.target.dataset.k==='cust')render();return}
  if(e.target.dataset.c==='lineqty'||e.target.dataset.c==='myprice'){const id=e.target.dataset.id,v=parseFloat(e.target.value);if(isNaN(v)||v<0)return;if(e.target.dataset.c==='lineqty')UI.draft.lines[id]=v;else{S.myPrice=S.myPrice||{};S.myPrice[id]=v;save()}const tot=sum(Object.entries(UI.draft.lines).filter(([,n])=>n>0),([i,n])=>priceOf(i)*n);$('#esttot').textContent=money(tot);const lt=document.getElementById('lt-'+id);if(lt)lt.textContent=money(priceOf(id)*(UI.draft.lines[id]||0));pcRefresh();return}
+ if(e.target.dataset.c==='co'){CO()[e.target.dataset.k]=e.target.value;save();return}
  if(e.target.dataset.c==='wonotes'){const x=S.estimates.find(y=>y.id==e.target.dataset.id);if(x){x.woNotes=e.target.value;save()}return}
  if(e.target.dataset.c==='mh'){UI.draft.mh=e.target.value;pcRefresh();return}
  if(e.target.dataset.c==='pset'){const k=e.target.dataset.k,v=e.target.value;if(k==='start'||k==='end'){if(/^\d\d-\d\d$/.test(v)){PR()[k]=v;save()}return}const n=parseFloat(v);if(!isNaN(n)&&n>=0){PR()[k]=n;save()}return}
