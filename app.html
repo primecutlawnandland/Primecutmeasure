@@ -200,7 +200,7 @@ const I={
  home:'<path d="M3 11 12 4l9 7v8a2 2 0 0 1-2 2h-4v-6H9v6H5a2 2 0 0 1-2-2z"/>',people:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16 14.6c2.7.2 4.7 1.9 5.4 5.4"/>',
  list:'<path d="M9 6h12M9 12h12M9 18h12"/><circle cx="4" cy="6" r="1.3"/><circle cx="4" cy="12" r="1.3"/><circle cx="4" cy="18" r="1.3"/>',
  pin:'<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',cam:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
- check:'<path d="m5 12 5 5 9-10"/>',chev:'<path d="m9 6 6 6-6 6"/>',back:'<path d="m15 5-7 7 7 7"/>',phone:'<path d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 5a2 2 0 0 1 2-2z"/>',
+ check:'<path d="m5 12 5 5 9-10"/>',doc:'<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/>',chev:'<path d="m9 6 6 6-6 6"/>',back:'<path d="m15 5-7 7 7 7"/>',phone:'<path d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 5a2 2 0 0 1 2-2z"/>',
  truck:'<path d="M2 6h11v10H2zM13 10h5l3 3v3h-8z"/><circle cx="6" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>'
 };
 const ic=(n,s=22,w=2)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
@@ -600,11 +600,47 @@ function sales(){
  ${catalog('browse')}
  </div>`}
 function lineName(id,q){const it=plant(id);return `${q.toLocaleString()} ${it.svc&&it.size!=='each'?it.size.replace('per ',''):'×'} ${it.name}`}
+let PDFLIB=null;
+function loadPDF(){if(window.jspdf)return Promise.resolve(window.jspdf);if(PDFLIB)return PDFLIB;
+ PDFLIB=new Promise((ok,no)=>{const sc=document.createElement('script');sc.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';sc.onload=()=>ok(window.jspdf);sc.onerror=()=>{PDFLIB=null;no()};document.head.appendChild(sc)});return PDFLIB}
+async function estPDF(id){const {jsPDF}=await loadPDF();const e=S.estimates.find(x=>x.id==id),c=cust(e.cust);
+ const doc=new jsPDF({unit:'pt',format:'letter'}),W=612,M=48,G=[41,133,58],LG=[74,188,57],INK=[22,36,26],SUB=[100,112,104];let y=M;
+ const logo=document.querySelector('img[src^="data:image/png"]');try{if(logo)doc.addImage(logo.src,'PNG',M,y-6,40,37)}catch(_){}
+ doc.setFont('helvetica','bold');doc.setFontSize(18);doc.setTextColor(...G);doc.text('PRIME CUT',M+50,y+10);
+ doc.setFontSize(8.5);doc.setTextColor(...SUB);doc.text('LAWN & LANDSCAPING',M+50,y+24);doc.text('Northern Kentucky  ·  primecutlawnky.com',M+50,y+35);
+ doc.setFontSize(22);doc.setTextColor(...INK);doc.text('Estimate',W-M,y+10,{align:'right'});
+ doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(...SUB);
+ const made=e.date?new Date(e.date):new Date(),valid=new Date(made.getTime()+30*864e5),fd=d=>d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+ doc.text('#'+e.id,W-M,y+26,{align:'right'});doc.text(fd(made),W-M,y+39,{align:'right'});
+ y+=62;doc.setDrawColor(...LG);doc.setLineWidth(2);doc.line(M,y,W-M,y);y+=24;
+ doc.setFontSize(8.5);doc.setTextColor(...SUB);doc.text('PREPARED FOR',M,y);doc.text('PROJECT',W/2,y);y+=15;
+ doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(...INK);doc.text(c.name,M,y);doc.text(doc.splitTextToSize(e.title,W/2-M),W/2,y);
+ doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(...SUB);
+ [c.address,c.phone,c.email].filter(Boolean).forEach((t,i)=>doc.text(t,M,y+15+i*13));
+ doc.text('Valid until '+fd(valid),W/2,y+15);y+=62;
+ doc.setFillColor(237,247,234);doc.rect(M,y,W-2*M,22,'F');doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(...G);
+ doc.text('ITEM',M+10,y+14);doc.text('QTY',W-M-190,y+14,{align:'right'});doc.text('PRICE',W-M-100,y+14,{align:'right'});doc.text('TOTAL',W-M-10,y+14,{align:'right'});y+=34;
+ for(const [pid,q] of Object.entries(e.lines)){const it=plant(pid);if(!it)continue;const pr=priceOf(pid),desc=doc.splitTextToSize(descOf(pid)||'',W-2*M-230),ph=e.photos&&e.photos[pid]&&(S.photos||[]).find(x=>x.id===e.photos[pid]);
+  const h=16+desc.length*12+(ph?70:0)+10;if(y+h>760){doc.addPage();y=M}
+  doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(...INK);doc.text(doc.splitTextToSize(it.name+(!it.svc&&it.size?' ('+it.size+')':''),W-2*M-230)[0],M+10,y);
+  doc.setFont('helvetica','normal');doc.text(q.toLocaleString(),W-M-190,y,{align:'right'});doc.text(pm(pr)+(it.svc&&it.size&&it.size!=='each'?' '+it.size:''),W-M-100,y,{align:'right'});
+  doc.setFont('helvetica','bold');doc.text(money(pr*q),W-M-10,y,{align:'right'});
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...SUB);doc.text(desc,M+10,y+14);let yy=y+14+desc.length*12;
+  if(ph){try{doc.addImage(ph.src,'JPEG',M+10,yy,84,63)}catch(_){}yy+=70}
+  y=yy+8;doc.setDrawColor(225,230,226);doc.setLineWidth(.5);doc.line(M,y-4,W-M,y-4);y+=14}
+ if(y>680){doc.addPage();y=M}
+ doc.setFillColor(...G);doc.roundedRect(W-M-220,y,220,40,6,6,'F');doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(11);doc.text('Total',W-M-206,y+25);doc.setFontSize(16);doc.text(money(estTotal(e)),W-M-14,y+26,{align:'right'});y+=70;
+ doc.setTextColor(...SUB);doc.setFont('helvetica','normal');doc.setFontSize(9);
+ doc.text(doc.splitTextToSize('This estimate is good for 30 days. Prices include labor, materials and cleanup unless noted. Thank you for choosing Prime Cut Lawn & Landscaping.',W-2*M),M,y);y+=54;
+ if(y>730){doc.addPage();y=M+20}
+ doc.setDrawColor(...SUB);doc.line(M,y,M+230,y);doc.line(W-M-150,y,W-M,y);doc.text('Customer signature',M,y+13);doc.text('Date',W-M-150,y+13);
+ return {doc,name:`Prime-Cut-Estimate-${e.id}-${c.name.replace(/[^A-Za-z0-9]+/g,'-')}.pdf`}}
 function estSheet(id){const e=S.estimates.find(x=>x.id==id),c=cust(e.cust);
  sheet(`<div class="stack"><div><div class="sub sm">Estimate #${e.id} · ${esc(c.name)}</div><h2>${esc(e.title)}</h2></div>
  <div class="card">${Object.entries(e.lines).map(([pid,q])=>{const pl=plant(pid);return `<div class="item" style="cursor:default"><div class="grow"><div class="t" style="white-space:normal">${esc(pl.name)}</div><div class="d">${q.toLocaleString()} × ${pm(priceOf(pid))} ${esc(pl.size)}</div><div class="d" style="white-space:normal;color:var(--ink)">${esc(descOf(pid))}</div></div><b class="num">${money(priceOf(pid)*q)}</b>${e.photos&&e.photos[pid]&&S.photos.find(x=>x.id===e.photos[pid])?`<button data-a="photoview" data-id="${e.photos[pid]}" style="border:0;padding:0;background:none;margin-left:8px"><img src="${S.photos.find(x=>x.id===e.photos[pid]).src}" alt="Line photo" style="width:40px;height:40px;border-radius:8px;object-fit:cover"></button>`:''}</div>`}).join('')}</div>
  <div class="total"><span>Total</span><span class="num">${money(estTotal(e))}</span></div>
  ${e.status==='sent'?`<button class="btn full big go" data-a="approve" data-id="${e.id}">Customer said yes</button><button class="btn full" data-a="lose" data-id="${e.id}">Customer said no</button>`:`<div class="sub sm">${e.status==='approved'?'Approved and on the schedule.':'Marked lost.'}</div>`}
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button class="btn dark" data-a="pdfview" data-id="${e.id}">${ic('doc',18)} View PDF</button><button class="btn" data-a="pdfsave" data-id="${e.id}">Download PDF</button></div>
  <button class="btn full" data-a="custsheet" data-id="${c.id}">Open ${esc(c.name)}</button><button class="btn full" data-a="close">Close</button></div>`)}
 function yardLine(c){return c.lawnSqft?`<div class="item" style="cursor:default"><div class="ico green">${ic('pin',20)}</div><div class="grow"><div class="t">${c.lawnSqft.toLocaleString()} sq ft lawn</div><div class="d">${c.perimFt.toLocaleString()} ft around${c.lotSqft?` · lot ${c.lotSqft.toLocaleString()} sq ft`:''}${c.snowSqft?` · drive and walks ${c.snowSqft.toLocaleString()} sq ft`:''}</div></div><button class="btn sm" data-a="measure" data-id="${c.id}">Redo</button></div>`:`<div class="item" style="cursor:default"><div class="ico blue">${ic('pin',20)}</div><div class="grow"><div class="t">Yard not measured yet</div><div class="d">Trace it from the aerial view</div></div><button class="btn sm dark" data-a="measure" data-id="${c.id}">Measure</button></div>`}
 function estBuilder(){
@@ -766,6 +802,8 @@ const A={
  pback:()=>{UI.tab=UI.pback||'cust';render();scrollTo(0,0)},
  profest:d=>{UI.draft={cust:d.id,title:'',lines:{}};UI.eback=d.id;UI.tab='est';render();scrollTo(0,0)},
  photoview:d=>photoView(d.id),
+ pdfsave:async d=>{try{const {doc,name}=await estPDF(d.id);doc.save(name);toast('PDF downloaded')}catch(e){toast("The PDF couldn't be made. Check your connection and try again.")}},
+ pdfview:async d=>{const w=window.open('','_blank');try{const {doc,name}=await estPDF(d.id);const u=URL.createObjectURL(doc.output('blob'));if(w){w.location.href=u}else{const a=document.createElement('a');a.href=u;a.target='_blank';a.rel='noopener';document.body.appendChild(a);a.click();a.remove()}}catch(e){if(w)w.close();toast("The PDF couldn't be made. Check your connection and try again.")}},
  edititem:d=>editItem(d.id||null),
  suggestdesc:()=>{const n=$('#i-n').value.trim();if(!n){toast('Type the item name first');return}const f=$('#itemform'),id=f.dataset.id,base=id?plant(id):null;
   $('#i-d').value=suggestDesc({id:base&&!String(id).startsWith('c')?id:'',name:n,type:$('#i-t').value,note:base?base.note:''});toast('Suggested description added. Change anything you like.')},
@@ -795,7 +833,7 @@ const A={
   if(!d.title.trim())return sheet(`<div class="stack"><h2>Name the project</h2><div class="sub">Give it a short name, like "Front bed makeover", so the customer knows what it's for.</div><button class="btn full big go" data-a="close">OK</button></div>`);
   if(!n)return sheet(`<div class="stack"><h2>Add something first</h2><div class="sub">Add at least one plant, material or labor line.</div><button class="btn full big go" data-a="close">OK</button></div>`);
   const id=Math.max(...S.estimates.map(e=>e.id))+1,c=cust(d.cust),lines={};Object.entries(d.lines).forEach(([k,v])=>{if(v>0)lines[k]=v});
-  const back=UI.eback===d.cust;UI.tab=back?'cust':'sales';commit(`Estimate #${id} sent to ${c.name}`,()=>{S.estimates.push({id,cust:d.cust,title:d.title.trim(),status:'sent',sentAgo:'today',lines,photos:{...(d.photos||{})}});S.msgs.push({who:'auto',ch:'Email',t:'Today '+fmtT(now()),kind:'Estimate',text:`Hi ${c.first}, here is your estimate #${id} for ${d.title.trim().toLowerCase()}: ${money(estTotal({lines}))}. Tap the link to approve it. (estimate link)`})});if(back)custSheet(d.cust);scrollTo(0,0)},
+  const back=UI.eback===d.cust;UI.tab=back?'cust':'sales';commit(`Estimate #${id} sent to ${c.name}`,()=>{S.estimates.push({id,cust:d.cust,title:d.title.trim(),status:'sent',sentAgo:'today',date:new Date().toISOString(),lines,photos:{...(d.photos||{})}});S.msgs.push({who:'auto',ch:'Email',t:'Today '+fmtT(now()),kind:'Estimate',text:`Hi ${c.first}, here is your estimate #${id} for ${d.title.trim().toLowerCase()}: ${money(estTotal({lines}))}. Tap the link to approve it. (estimate link)`})});if(back)custSheet(d.cust);scrollTo(0,0)},
  estsheet:d=>estSheet(d.id),
  approve:d=>{const e=S.estimates.find(x=>x.id==d.id),hrs_=e.lines.m3||4,need=Math.min(480,hrs_*60),day_=[1,2,3,4].find(x=>booked('c1',x)+need+15<=540)||5;close();commit(`#${e.id} approved and put on the schedule`,()=>{e.status='approved';const last=crewDay('c1',day_).slice(-1)[0];S.jobs.push({id:'j'+Date.now(),cust:e.cust,crew:'c1',day:day_,service:'Landscape install',price:estTotal(e),est:need,start:last?last.start+last.est+15:450,status:'todo',startedAt:null,doneAt:null,why:'',checks:{},photo:false});S.msgs.push({who:'auto',ch:'Text',t:'Today '+fmtT(now()),kind:'Estimate approved',text:`Thanks ${cust(e.cust).first}! Your ${e.title.toLowerCase()} is on our schedule for ${day_<5?dayName(day_):'next week'}. We'll text you the day before.`})})},
  lose:d=>{const e=S.estimates.find(x=>x.id==d.id);close();commit(`#${e.id} marked lost`,()=>{e.status='lost'})},
