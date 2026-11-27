@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Prime Cut Yard Measure</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+:root{--bg:#F2F5F1;--card:#fff;--ink:#16241A;--sub:#66746A;--line:#E3E9E1;--green:#4ABC39;--deep:#29853A;--mint:#E4F5E1;--red:#D64535;--red-soft:#FDE8E5;
+ --head:"Montserrat","Arial Black",system-ui,sans-serif;--body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;--shadow:0 1px 2px rgba(22,36,26,.05),0 6px 20px rgba(22,36,26,.08)}
+*{box-sizing:border-box}[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased}
+button,input{font:inherit;color:inherit}
+h1,h2{font-family:var(--head);font-weight:800;margin:0;letter-spacing:-.01em}
+.app{display:flex;flex-direction:column;height:100%;max-width:900px;margin:0 auto}
+header{display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top,0px)) max(14px,env(safe-area-inset-right,0px)) 8px max(14px,env(safe-area-inset-left,0px))}
+header b{font-family:var(--head);color:var(--deep);font-size:1rem;letter-spacing:.02em}
+header small{display:block;font-size:.62rem;letter-spacing:.14em;color:var(--sub);font-weight:600}
+.search{display:flex;gap:8px;padding:0 max(14px,env(safe-area-inset-right,0px)) 10px max(14px,env(safe-area-inset-left,0px))}
+.search input{flex:1;min-width:0;min-height:50px;border:0;border-radius:14px;background:var(--card);box-shadow:var(--shadow);padding:0 14px}
+.btn{min-height:50px;border-radius:14px;border:0;background:var(--card);box-shadow:var(--shadow);padding:0 16px;font-weight:600;cursor:pointer}
+.btn.go{background:var(--green);color:#fff}.btn.dark{background:var(--deep);color:#fff}
+#map{flex:1;min-height:300px;background:#cfd8cc}
+.panel{background:var(--card);border-radius:22px 22px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.08);padding:14px max(14px,env(safe-area-inset-right,0px)) calc(14px + env(safe-area-inset-bottom,0px)) max(14px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:10px}
+.nums{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.num{background:var(--bg);border-radius:14px;padding:10px 12px}
+.num b{display:block;font-family:var(--head);font-size:1.5rem;font-variant-numeric:tabular-nums}
+.num span{font-size:.78rem;color:var(--sub)}
+.row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.hint{font-size:.86rem;color:var(--sub)}
+.areas{display:flex;flex-direction:column;gap:6px}
+.area{display:flex;justify-content:space-between;font-size:.9rem;padding:6px 0;border-top:1px solid var(--line)}
+.err{background:var(--red-soft);color:var(--red);border-radius:12px;padding:10px 12px;font-weight:600;font-size:.9rem}
+.addrwrap{position:relative;flex:1;min-width:0;display:flex}
+.sug{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:50;background:var(--card);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.18);list-style:none;margin:0;padding:6px;max-height:60vh;overflow:auto}
+.sug li{padding:12px;border-radius:10px;cursor:pointer;font-size:.95rem;line-height:1.3}
+.sug li small{display:block;color:var(--sub);font-size:.8rem}
+.sug li:hover,.sug li[aria-selected="true"]{background:var(--mint)}
+.setup{padding:20px max(16px,env(safe-area-inset-right,0px)) 20px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:12px;max-width:520px;margin:0 auto}
+.setup input{min-height:52px;border:1.5px solid var(--line);border-radius:14px;padding:0 14px;background:var(--card)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <svg width="34" height="34" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#4ABC39"/><path d="M9 26c1-6 2-11 4-15M14 26c0-7 1-13 3-18M19 26c0-6 2-11 5-14" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg>
+    <div><b>PRIME CUT</b><small>YARD MEASURE · V3</small></div>
+  </header>
+
+  <div class="setup" id="setup" hidden>
+    <h2>One-time setup</h2>
+    <div class="hint">Paste your Google Maps key. It stays on this phone or computer only.</div>
+    <input id="key" placeholder="AIza…" autocomplete="off" aria-label="Google Maps key">
+    <button class="btn go" id="savekey">Save and open the map</button>
+  </div>
+
+  <div class="search" id="searchbar" hidden>
+    <div class="addrwrap"><input id="addr" placeholder="Start typing an address…" aria-label="Address" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="sug"><ul class="sug" id="sug" role="listbox" hidden></ul></div>
+    <button class="btn dark" id="go">Find</button>
+  </div>
+  <div id="map" hidden></div>
+  <div class="panel" id="panel" hidden>
+    <div class="hint" id="hint">Find the address, then tap each corner of the grass. Tap the first dot to finish.</div>
+    <div id="msg"></div>
+    <div class="nums"><div class="num"><b id="area">0</b><span>Square feet</span></div><div class="num"><b id="per">0</b><span>Feet around</span></div></div>
+    <div class="row"><button class="btn" id="undo">Undo dot</button><button class="btn" id="clear">Clear</button><button class="btn go" id="keep">Save area</button></div>
+    <div class="areas" id="areas"></div>
+  </div>
+</div>
+<script>
+/* ===== PASTE THE GOOGLE MAPS KEY BETWEEN THE QUOTES BELOW =====
+   Then nobody has to type it on their phone. Only do this after the key is
+   restricted to https://primecutlawnandland.github.io/* in Google Cloud. */
+const BUILT_IN_KEY = 'AIzaSyDOlhbueW1QlluRrtb3giU_cf43_USY1fw';
+/* ============================================================== */
+(function(){
+const $=s=>document.querySelector(s);
+const store={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
+const SQM_TO_SQFT=10.7639, M_TO_FT=3.28084;
+let map,geocoder,poly,line,markers=[],pts=[],closed=false,saved=JSON.parse(store.get('pc-areas')||'[]');
+
+function boot(){
+  const key=(BUILT_IN_KEY||'').trim()||store.get('pc-gmaps-key');
+  if(!key){$('#setup').hidden=false;return}
+  window.__pcInit=init;
+  const s=document.createElement('script');
+  s.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(key)+'&libraries=geometry,places&callback=__pcInit&loading=async';
+  s.onerror=()=>showSetup('The map could not load. Check the key and try again.');
+  window.gm_authFailure=()=>showSetup('Google turned down that key. Make sure Maps JavaScript API is turned on and the key allows this website.');
+  document.head.appendChild(s);
+}
+function showSetup(msg){
+  if((BUILT_IN_KEY||'').trim()){$('#setup').hidden=false;$('#searchbar').hidden=true;$('#map').hidden=true;$('#panel').hidden=true;
+    $('#setup').innerHTML='<h2>Google turned down the key</h2><div class="err"></div><div class="hint">The key is built into this page, so no setup is needed. In Google Cloud, check three things: Maps JavaScript API is turned on, billing is turned on, and the key\'s website list includes https://primecutlawnandland.github.io/*</div>';
+    $('#setup .err').textContent=msg||'';return}
+  $('#setup').hidden=false;$('#searchbar').hidden=true;$('#map').hidden=true;$('#panel').hidden=true;
+  if(msg){let e=$('#setup .err');if(!e){e=document.createElement('div');e.className='err';$('#setup').insertBefore(e,$('#key'))}e.textContent=msg}}
+$('#savekey').onclick=()=>{const k=$('#key').value.trim();if(!/^AIza[\w-]{20,}$/.test(k)){showSetup("That doesn't look like a Google key. It starts with AIza.");return}store.set('pc-gmaps-key',k);location.reload()};
+
+function init(){
+  $('#searchbar').hidden=false;$('#map').hidden=false;$('#panel').hidden=false;
+  map=new google.maps.Map($('#map'),{center:{lat:39.0,lng:-84.65},zoom:12,mapTypeId:'satellite',tilt:0,disableDefaultUI:true,zoomControl:true,gestureHandling:'greedy',clickableIcons:false});
+  geocoder=new google.maps.Geocoder();
+  poly=new google.maps.Polygon({map,strokeColor:'#FFFFFF',strokeWeight:3,fillColor:'#4ABC39',fillOpacity:.35,clickable:false});
+  line=new google.maps.Polyline({map,strokeColor:'#FFFFFF',strokeWeight:3,clickable:false});
+  map.addListener('click',e=>{if(closed)return;pts.push(e.latLng);draw()});
+  renderSaved();
+  let fromApp='';try{fromApp=decodeURIComponent((location.hash.match(/addr=([^&]*)/)||[])[1]||'').trim()}catch(e){}
+  if(fromApp){$('#addr').value=fromApp;find()}
+  else{const last=store.get('pc-last-addr');if(last){$('#addr').value=last}}
+}
+/* address suggestions (Places API New) */
+let token=null,timer=null,sugs=[],sel=-1,places=null;
+async function placesLib(){if(places!==null)return places;try{places=await google.maps.importLibrary('places')}catch(e){places=false}return places}
+function hideSug(){$('#sug').hidden=true;$('#addr').setAttribute('aria-expanded','false');sugs=[];sel=-1}
+function showSug(){const ul=$('#sug');ul.textContent='';
+  sugs.forEach((sg,i)=>{const p=sg.placePrediction,li=document.createElement('li');li.setAttribute('role','option');li.setAttribute('aria-selected',i===sel);
+    const main=p.mainText?p.mainText.text:p.text.text,sec=p.secondaryText?p.secondaryText.text:'';li.textContent=main;if(sec){const sm=document.createElement('small');sm.textContent=sec;li.append(sm)}
+    li.addEventListener('mousedown',e=>{e.preventDefault();pick(i)});ul.append(li)});
+  ul.hidden=!sugs.length;$('#addr').setAttribute('aria-expanded',String(!!sugs.length))}
+async function suggest(q){const lib=await placesLib();if(!lib||!lib.AutocompleteSuggestion)return;
+  if(!token)token=new lib.AutocompleteSessionToken();
+  try{const {suggestions}=await lib.AutocompleteSuggestion.fetchAutocompleteSuggestions({input:q,sessionToken:token,includedRegionCodes:['us'],locationBias:{center:map.getCenter()?{lat:map.getCenter().lat(),lng:map.getCenter().lng()}:{lat:39.0,lng:-84.65},radius:50000}});
+    if($('#addr').value.trim()!==q)return;sugs=(suggestions||[]).filter(x=>x.placePrediction).slice(0,5);sel=-1;showSug()}
+  catch(e){if(!window.__pcPlacesWarned){window.__pcPlacesWarned=1;$('#msg').innerHTML='<div class="err">Address suggestions are off. Turn on "Places API (New)" for your key in Google Cloud. Find still works.</div>'}}}
+async function pick(i){const p=sugs[i].placePrediction;$('#addr').value=p.text.text;hideSug();
+  try{const place=p.toPlace();await place.fetchFields({fields:['location','formattedAddress']});token=null;
+    $('#addr').value=place.formattedAddress||p.text.text;store.set('pc-last-addr',$('#addr').value);$('#msg').innerHTML='';
+    map.setCenter(place.location);map.setZoom(20);clearPts()}catch(e){find()}}
+$('#addr').addEventListener('input',()=>{clearTimeout(timer);const q=$('#addr').value.trim();if(q.length<3){hideSug();return}timer=setTimeout(()=>suggest(q),250)});
+$('#addr').addEventListener('keydown',e=>{if($('#sug').hidden)return;
+  if(e.key==='ArrowDown'){sel=Math.min(sugs.length-1,sel+1);showSug();e.preventDefault()}
+  else if(e.key==='ArrowUp'){sel=Math.max(0,sel-1);showSug();e.preventDefault()}
+  else if(e.key==='Enter'&&sel>=0){e.preventDefault();e.stopImmediatePropagation();pick(sel)}
+  else if(e.key==='Escape')hideSug()});
+$('#addr').addEventListener('blur',()=>setTimeout(hideSug,150));
+function find(){hideSug();
+  const a=$('#addr').value.trim();if(!a)return;
+  geocoder.geocode({address:a,region:'us'},(res,status)=>{
+    if(status!=='OK'||!res[0]){$('#msg').innerHTML='<div class="err">Could not find that address. Add the city and KY.</div>';return}
+    $('#msg').innerHTML='';store.set('pc-last-addr',a);
+    map.setCenter(res[0].geometry.location);map.setZoom(20);clearPts();
+  });
+}
+$('#go').onclick=find;$('#addr').addEventListener('keydown',e=>{if(e.key==='Enter')find()});
+
+function draw(){
+  markers.forEach(m=>m.setMap(null));markers=[];
+  pts.forEach((p,i)=>{const m=new google.maps.Marker({map,position:p,clickable:i===0&&!closed,icon:{path:google.maps.SymbolPath.CIRCLE,scale:i===0?8:6,fillColor:i===0?'#4ABC39':'#FFFFFF',fillOpacity:1,strokeColor:'#1D6A2D',strokeWeight:2}});
+    if(i===0)m.addListener('click',()=>{if(pts.length>=3){closed=true;draw()}});markers.push(m)});
+  if(closed){poly.setPath(pts);line.setPath([])}else{poly.setPath([]);line.setPath(pts)}
+  const sph=google.maps.geometry.spherical;
+  const area=closed?sph.computeArea(pts)*SQM_TO_SQFT:0;
+  const per=pts.length>1?sph.computeLength(closed?pts.concat([pts[0]]):pts)*M_TO_FT:0;
+  $('#area').textContent=closed?Math.round(area).toLocaleString():'—';
+  $('#per').textContent=Math.round(per).toLocaleString();
+  $('#hint').textContent=closed?'Done. Tap Save area, or Clear to redo.':pts.length?'Keep tapping corners. Tap the first dot to finish.':'Find the address, then tap each corner of the grass. Tap the first dot to finish.';
+}
+function clearPts(){pts=[];closed=false;draw()}
+$('#undo').onclick=()=>{if(closed)closed=false;else pts.pop();draw()};
+$('#clear').onclick=clearPts;
+$('#keep').onclick=()=>{
+  if(!closed){$('#msg').innerHTML='<div class="err">Finish the shape first by tapping the first dot.</div>';return}
+  $('#msg').innerHTML='';
+  const sph=google.maps.geometry.spherical;
+  saved.unshift({addr:$('#addr').value.trim()||'Unnamed',sqft:Math.round(sph.computeArea(pts)*SQM_TO_SQFT),ft:Math.round(sph.computeLength(pts.concat([pts[0]]))*M_TO_FT),when:new Date().toLocaleDateString()});
+  saved=saved.slice(0,30);store.set('pc-areas',JSON.stringify(saved));renderSaved();clearPts();
+};
+function renderSaved(){const box=$('#areas');box.textContent='';
+  saved.forEach(s=>{const d=document.createElement('div');d.className='area';const a=document.createElement('span');a.textContent=s.addr;const b=document.createElement('b');b.textContent=s.sqft.toLocaleString()+' sq ft · '+s.ft.toLocaleString()+' ft';d.append(a,b);box.append(d)})}
+boot();
+})();
+</script>
+</body>
+</html>
