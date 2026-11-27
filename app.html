@@ -227,7 +227,7 @@ function seed(){
   J('k1','c1',0,'Leaf removal',240,75,660,'todo'),
   J('k1','c1',3,'Mowing',67,40,540,'todo'),
   J('k1','c1',4,'Landscape install',1850,360,450,'todo'),
- ];
+ ];jobs[2].estId=1042;
  customers[0].first='Jen';customers[0].email='jharper@example.com';customers[0].bday=dd(7).toISOString();
  customers[0].history=HIST();customers[0].accessEs='Perro amigable llamado Biscuit. Cierre el portón al salir.';
  return {role:'owner',lang:'en',customers,jobs,photos:[],
@@ -242,7 +242,7 @@ function seed(){
   people:[{id:'p1',name:'Jake Turner',crew:'c1',inAt:null,me:true,phone:'(859) 555-0147',email:'jake@example.com',role:'Crew lead',pay:22,payType:'hour',start:'2024-03-18',emName:'Maria Turner',emPhone:'(859) 555-0190',docs:{w4:'2024-03-18',i9:'2024-03-18',k4:'2024-03-18',dd:'2024-03-20',license:'2024-03-18',handbook:'2024-03-18'}}],
   week:[505,530,470],problems:[]};
 }
-let S;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}if(!S)S=seed();S.photos=S.photos||[];if(!S.fleet){S.fleet=FSEED();S.lastAudit=new Date(Date.now()-25*864e5).toISOString().slice(0,10)}S.estimates.forEach(e=>{if(!e.date&&e.status==='sent'){const m=/(\d+) days? ago/.exec(e.sentAgo||'');e.date=new Date(Date.now()-(m?+m[1]:0)*864e5).toISOString()}});{const h=S.customers.find(c=>c.id==='k1');if(h&&!h.history)h.history=HIST()}
+let S;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}if(!S)S=seed();S.photos=S.photos||[];S.jobs.forEach(j=>{if(j.service==='Landscape install'&&!j.estId&&j.cust==='k1'&&S.estimates.some(e=>e.id===1042))j.estId=1042});if(!S.fleet){S.fleet=FSEED();S.lastAudit=new Date(Date.now()-25*864e5).toISOString().slice(0,10)}S.estimates.forEach(e=>{if(!e.date&&e.status==='sent'){const m=/(\d+) days? ago/.exec(e.sentAgo||'');e.date=new Date(Date.now()-(m?+m[1]:0)*864e5).toISOString()}});{const h=S.customers.find(c=>c.id==='k1');if(h&&!h.history)h.history=HIST()}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const UI={pts:[],closed:false,mcust:null,mback:null,pall:false,pq:'',ptype:'All',draft:null,tab:null,job:null,day:0,q:'',locating:false};let PHOTO={};
 const cust=id=>S.customers.find(c=>c.id===id), crew=id=>S.crews.find(c=>c.id===id), job=id=>S.jobs.find(j=>j.id===id);
@@ -527,6 +527,7 @@ function sched(){
 }
 function jobSheet(id){const j=job(id),k=cust(j.cust);
  sheet(`<div class="stack"><div><h2>${esc(k.name)}</h2><div class="sub">${esc(k.address)}</div></div>
+ ${j.estId&&S.estimates.some(e=>e.id===j.estId)?`<button class="btn full dark" data-a="wo" data-id="${j.id}">${ic('doc',18)} Work order for the crew</button>`:''}
  <div class="card"><div class="item" style="cursor:default"><div class="grow"><div class="t">${esc(j.service)}</div><div class="d">${dayName(j.day)} · ${fmtT(j.start)} · about ${hrs(j.est)}</div></div><b class="num">${money(j.price)}</b></div></div>
  ${j.status==='todo'||j.status==='skipped'?`<div class="sub sm" style="font-weight:600">Move to another crew</div><div class="opts">${S.crews.map(c=>`<button class="opt" data-a="movecrew" data-id="${j.id}" data-c="${c.id}" aria-pressed="${c.id===j.crew}">${c.name} · ${c.lead}</button>`).join('')}</div>
  ${j.day<4?`<button class="btn full" data-a="nextday" data-id="${j.id}">Move to ${dayName(j.day+1).toLowerCase()==='tomorrow'?'tomorrow':dayName(j.day+1)}</button>`:''}`:`<div class="sub sm">This job is ${j.status==='done'?'finished':'in progress'}, so it can't be moved.</div>`}
@@ -613,6 +614,7 @@ function today(){
  else clock=`<div class="clockcard"><div class="grow"><div class="sub sm"><span class="pulse"></span>&nbsp; ${tr('On the clock since','Trabajando desde')} ${fmtT(p.inAt)}</div><div class="time num">${hrs(worked(p))}</div></div><button class="btn sm redb" data-a="clockout">${tr('Clock out','Marcar salida')}</button></div>`;
  return `<div class="stack"><div class="sec" style="margin:0;align-items:flex-start"><div><div class="sub sm">${tr(c.name,'Equipo '+c.name.slice(-1))} · ${dd(0).toLocaleDateString(loc(),{weekday:'long',month:'short',day:'numeric'})}</div><h1>${tr('Hi','Hola')}, ${esc(p.name.split(' ')[0])}</h1></div><button class="btn sm" data-a="lang" style="background:var(--card);box-shadow:var(--shadow)" aria-label="${tr('Switch to Spanish','Cambiar a inglés')}">${tr('Español','English')}</button></div>
  <div class="card">${clock}</div>
+ ${(()=>{const up=S.jobs.filter(x=>x.crew===c.id&&x.day>0&&x.estId&&x.status==='todo'&&S.estimates.some(e=>e.id===x.estId)).sort((a,b)=>a.day-b.day);return up.length?`<div class="sec"><h2>${tr('Work orders coming up','Órdenes de trabajo próximas')}</h2></div><div class="card">${up.map(x=>{const e=S.estimates.find(y=>y.id===x.estId);return `<button class="item" data-a="wo" data-id="${x.id}"><div class="ico blue">${ic('doc',18)}</div><div class="grow"><div class="t">${esc(e.title)}</div><div class="d">${esc(dayName(x.day))} · ${esc(cust(x.cust).address.split(',')[0])}</div></div><span class="chev">${ic('chev',16)}</span></button>`}).join('')}</div>`:''})()}
  <div class="sec"><h2>${tr("Today's stops",'Paradas de hoy')}</h2><span class="sub sm num">${s.done} ${tr('of','de')} ${s.js.length} ${tr('done','listas')}</span></div>
  ${s.js.some(j=>j.status==='todo'||j.status==='now')?`<a class="btn full dark" style="display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none" target="_blank" rel="noopener" href="${navURL(s.js.filter(j=>j.status==='todo'||j.status==='now'))}">${ic('pin',18)} ${tr('Navigate all stops','Navegar a todas las paradas')}</a>`:''}
  ${s.js.map((j,i)=>{const k=cust(j.cust);return `<button class="stop ${({done:'done',now:'now',skipped:'skip',todo:''})[j.status]}" data-a="openjob" data-id="${j.id}"><div class="n">${j.status==='done'?ic('check',20,3):j.status==='skipped'?ic('x',20):i+1}</div><div class="grow" style="flex:1;min-width:0"><div class="addr">${esc(k.address.split(',')[0])}</div><div class="sub sm">${esc(L(j.service))}${j.status==='now'?tr(' · working now',' · trabajando'):j.status==='skipped'?tr(' · skipped',' · saltada'):''}</div></div><span class="chev">${ic('chev',18)}</span></button>`}).join('')}
@@ -637,6 +639,7 @@ function jobView(){
  if(j.status==='skipped')body=`<div class="card clockcard"><div class="ico red">${ic('x',22)}</div><div class="grow"><div style="font-weight:700">${tr('Skipped','Saltado')}</div><div class="sub sm">${esc(L(j.why))}. ${tr('The office will reschedule.','La oficina lo va a reprogramar.')}</div></div></div>`;
  return `<div class="stack"><button class="back" data-a="tab" data-t="today">${ic('back',18)} ${tr('Today','Hoy')}</button>
  <div><div class="sub sm">${esc(k.name)} · ${esc(L(j.service))}</div><h1>${esc(k.address.split(',')[0])}</h1><div class="sub">${esc(k.address.split(',')[1]||'')}</div></div>
+ ${j.estId&&S.estimates.some(e=>e.id===j.estId)?`<button class="btn full big dark" data-a="wo" data-id="${j.id}" style="display:flex;align-items:center;justify-content:center;gap:8px">${ic('doc',20)} ${tr('Open the work order','Abrir la orden de trabajo')}</button>`:''}
  <a class="btn full dark" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(k.address+', KY')}">${ic('pin',20)} ${tr('Directions','Cómo llegar')}</a>
  ${k.access?`<div class="note">${ic('warn',22)}<div>${esc(isES()&&k.accessEs?k.accessEs:k.access)}${isES()&&k.accessEs?'<div class="sub sm" style="margin-top:4px">Traducido automáticamente</div>':''}</div></div>`:''}
  ${body}</div>`;
@@ -920,7 +923,7 @@ function estSheet(id){const e=S.estimates.find(x=>x.id==id),c=cust(e.cust);
  sheet(`<div class="stack"><div><div class="sub sm">Estimate #${e.id} · ${esc(c.name)}</div><h2>${esc(e.title)}</h2></div>
  <div class="card">${Object.entries(e.lines).map(([pid,q])=>{const pl=plant(pid);return `<div class="item" style="cursor:default"><div class="grow"><div class="t" style="white-space:normal">${esc(pl.name)}</div><div class="d">${q.toLocaleString()} × ${pm(priceOf(pid))} ${esc(pl.size)}</div><div class="d" style="white-space:normal;color:var(--ink)">${esc(descOf(pid))}</div></div><b class="num">${money(priceOf(pid)*q)}</b>${e.photos&&e.photos[pid]&&S.photos.find(x=>x.id===e.photos[pid])?`<button data-a="photoview" data-id="${e.photos[pid]}" style="border:0;padding:0;background:none;margin-left:8px"><img src="${S.photos.find(x=>x.id===e.photos[pid]).src}" alt="Line photo" style="width:40px;height:40px;border-radius:8px;object-fit:cover"></button>`:''}</div>`}).join('')}</div>
  <div class="total"><span>Total</span><span class="num">${money(estTotal(e))}</span></div>
- ${e.status==='sent'?`<button class="btn full big go" data-a="approve" data-id="${e.id}">Customer said yes</button><button class="btn full" data-a="lose" data-id="${e.id}">Customer said no</button>`:`<div class="sub sm">${e.status==='approved'?'Approved and on the schedule.':'Marked lost.'}</div>`}
+ ${e.status==='sent'?`<button class="btn full big go" data-a="approve" data-id="${e.id}">Customer said yes</button><button class="btn full" data-a="lose" data-id="${e.id}">Customer said no</button>`:`<div class="sub sm">${e.status==='approved'?'Approved and on the schedule.':'Marked lost.'}</div>${e.status==='approved'&&S.jobs.find(j=>j.estId===e.id)?`<button class="btn full dark" data-a="wo" data-id="${S.jobs.find(j=>j.estId===e.id).id}">${ic('doc',18)} Work order for the crew</button>`:''}`}
  ${fuTimeline(e)}
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button class="btn dark" data-a="pdfview" data-id="${e.id}">${ic('doc',18)} View PDF</button><button class="btn" data-a="pdfsave" data-id="${e.id}">Download PDF</button></div>
  <button class="btn full" data-a="custsheet" data-id="${c.id}">Open ${esc(c.name)}</button><button class="btn full" data-a="close">Close</button></div>`)}
@@ -1105,6 +1108,51 @@ function svcForm(id,err=''){const a=S.fleet.find(x=>x.id===id),u=unitOf(a);
 function saveSvc(){const f=$('#svcform'),a=S.fleet.find(x=>x.id===f.dataset.id),m=$('#sv-m')?$('#sv-m').value.trim():'',r={what:$('#sv-w').value,date:$('#sv-d').value,cost:$('#sv-c').value.trim()===''?'':+$('#sv-c').value,meter:m===''?'':+m,notes:$('#sv-n').value.trim()};
  if(!r.date)return svcForm(a.id,'Pick the date.');
  close();commit(`${r.what} logged`,()=>{a.service=a.service||[];a.service.push(r);if(r.meter!==''&&(!hasM(a)||r.meter>=+a.meter))applyReading(a,r.meter);if(r.what==='Oil change'&&r.meter!=='')a.lastOilAt=r.meter});render()}
+
+
+/* ---------------- WORK ORDERS (built from the won estimate) ---------------- */
+const TOOLS={
+ tree:[['Skid steer or auger','Minicargador o barrena'],['Round shovels','Palas redondas'],['Tape measure','Cinta métrica'],['Tree stakes and straps','Estacas y correas para árboles'],['Tarp','Lona']],
+ plant:[['Shovels and spades','Palas'],['Wheelbarrows','Carretillas'],['Hand trowels','Palas de mano'],['Pruners','Tijeras de podar'],['Hose or water tank','Manguera o tanque de agua']],
+ mulch:[['Pitchforks','Horquillas'],['Wheelbarrows','Carretillas'],['Bow rakes','Rastrillos'],['Tarps','Lonas'],['Dump trailer','Remolque de volteo']],
+ edge:[['Bed edger or half-moon spade','Bordeadora o pala media luna'],['String line','Hilo guía']],
+ seed:[['Slit seeder or spreader','Sembradora o esparcidora'],['Leaf rakes','Rastrillos de hojas'],['Lawn roller','Rodillo'],['Sprinkler and hose','Aspersor y manguera']],
+ sod:[['Sod knife','Cuchillo para pasto'],['Lawn roller','Rodillo'],['Wheelbarrows','Carretillas'],['Sprinkler and hose','Aspersor y manguera']],
+ mow:[['Mower','Cortadora'],['String trimmer','Desbrozadora'],['Edger','Bordeadora'],['Blower','Sopladora']],
+ aerate:[['Core aerator','Aireadora'],['Marking flags for sprinkler heads','Banderas para marcar aspersores']],
+ leaf:[['Backpack blowers','Sopladoras de mochila'],['Leaf vacuum or loader','Aspiradora de hojas'],['Tarps','Lonas'],['Rakes','Rastrillos']],
+ hard:[['Plate compactor','Compactadora'],['Wet saw','Sierra de agua'],['4 ft level','Nivel de 4 pies'],['Screed rails','Reglas para nivelar'],['Rubber mallet','Mazo de goma']],
+ trim:[['Hedge trimmers','Cortasetos'],['Pole saw','Sierra de pértiga'],['Loppers','Tijeras de podar largas']],
+ snow:[['Plow truck','Camioneta con arado'],['Salt spreader','Esparcidora de sal'],['Snow shovels','Palas de nieve']]};
+function toolsFor(e){const k=new Set();Object.keys(e.lines).forEach(id=>{const it=plant(id),n=(it.name||'').toLowerCase(),t=it.type;
+ if(t==='Tree')k.add('tree');if(['Shrub','Perennial','Annual','Grass'].includes(t))k.add('plant');if(id==='m1'||/mulch/.test(n))k.add('mulch');if(id==='m2'||/edging/.test(n))k.add('edge');
+ if(/seed/.test(n))k.add('seed');if(/sod/.test(n))k.add('sod');if(/mow/.test(n))k.add('mow');if(/aerat/.test(n))k.add('aerate');if(/leaf|cleanup/.test(n))k.add('leaf');
+ if(/patio|paver|wall|hardscape|stone|walk/.test(n))k.add('hard');if(/hedge|trim|prun/.test(n))k.add('trim');if(/snow|salt|plow/.test(n))k.add('snow')});
+ const out=[];k.forEach(x=>TOOLS[x].forEach(t=>{if(!out.some(o=>o[0]===t[0]))out.push(t)}));return {keys:[...k],tools:out}}
+function woFleet(j,keys){const F=(S.fleet||[]).filter(a=>!a.retired),want=a=>{const n=(a.name+' '+a.model).toLowerCase();return (keys.includes('tree')&&/skid|auger|loader/.test(n))||(keys.includes('mulch')&&(a.kind==='Trailer'||/dump|skid/.test(n)))||(keys.includes('aerate')&&/aerat/.test(n))||(keys.includes('mow')&&a.kind==='Mower')||(keys.includes('hard')&&/compact|skid|saw/.test(n))};
+ const mine=F.filter(a=>a.crew===j.crew&&(a.kind==='Truck'||a.kind==='Trailer'||want(a))),other=F.filter(a=>a.crew!==j.crew&&want(a));return {mine,other}}
+function woView(jid){const j=job(jid),e=S.estimates.find(x=>x.id===j.estId),k=cust(j.cust),crewSide=S.role==='crew';if(!e)return '';
+ const T=(en,es)=>crewSide?tr(en,es):en,lines=Object.entries(e.lines).filter(([,q])=>q>0),mats=lines.filter(([id])=>MATS(plant(id))),work=lines.filter(([id])=>!MATS(plant(id))&&id!=='m3');
+ const {keys,tools}=toolsFor(e),fl=woFleet(j,keys),cr=crew(j.crew),ppl=S.people.filter(p=>p.crew===j.crew&&!p.gone).length||1;
+ const pics=[...Object.values(e.photos||{}).map(pid=>S.photos.find(x=>x.id===pid)).filter(Boolean),...S.photos.filter(x=>x.cust===k.id&&!Object.values(e.photos||{}).includes(x.id)).slice(-6).reverse()];
+ const mh=+e.mh||(e.lines.m3||0),load=j.load||{};
+ return `<div class="stack"><div><div class="sub sm">${T('Work order','Orden de trabajo')} · #${e.id}</div><h2>${esc(e.title)}</h2><div class="sub">${esc(k.name)} · ${esc(k.address)}</div></div>
+ <div class="card">
+  <div class="item" style="cursor:default"><div class="ico green">${ic('clock',18)}</div><div class="grow"><div class="t">${crewSide&&isES()?(j.day===0?'Hoy':j.day===1?'Mañana':dd(j.day).toLocaleDateString('es-US',{weekday:'long'})):dayName(j.day)} · ${fmtT(j.start)}</div><div class="d">${T('About','Aprox.')} ${hrs(j.est)}${mh?` · ${mh} ${T('crew hours planned','horas de equipo planeadas')}`:''} · ${esc(cr.name)}${cr.lead?' ('+T('lead','líder')+': '+esc(cr.lead)+')':''}</div></div></div>
+  ${(crewSide&&isES()?k.accessEs:k.access)||k.access?`<div class="item" style="cursor:default"><div class="ico amber">${ic('warn',18)}</div><div class="grow"><div class="d">${T('Site notes','Notas del sitio')}</div><div class="t" style="white-space:normal">${esc((crewSide&&isES()&&k.accessEs)||k.access)}</div></div></div>`:''}
+  ${k.lawnSqft?`<div class="item" style="cursor:default"><div class="ico green">${ic('pin',18)}</div><div class="grow"><div class="t">${k.lawnSqft.toLocaleString()} sq ft ${T('lawn','de césped')} · ${k.perimFt.toLocaleString()} ft ${T('around','de perímetro')}</div></div></div>`:''}
+  <a class="item" style="text-decoration:none;color:inherit" target="_blank" rel="noopener" href="${navURL([j])}"><div class="ico blue">${ic('pin',18)}</div><div class="grow"><div class="t">${T('Directions','Cómo llegar')}</div></div><span class="chev">${ic('chev',16)}</span></a></div>
+ ${crewSide?(e.woNotes?`<div class="card" style="background:#FFF6E0"><div class="sub sm">${T('Notes from Hunter','Notas de Hunter')}</div><div style="white-space:pre-wrap;line-height:1.45">${esc(e.woNotes)}</div></div>`:''):`<div class="field"><label for="wo-n">Notes for the crew</label><textarea id="wo-n" data-c="wonotes" data-id="${e.id}" placeholder="Example: plant the arborvitae 6 ft apart along the back fence. Call me before cutting any roots.">${esc(e.woNotes||'')}</textarea></div>`}
+ ${pics.length?`<div class="sec"><h2>${T('Photos','Fotos')}</h2></div><div class="pgrid">${pics.map(x=>`<button data-a="photoview" data-id="${x.id}" aria-label="${esc(x.label)}"><img src="${x.src}" alt=""><span>${esc(x.label.split('·').pop().trim().slice(0,18))}</span></button>`).join('')}</div>`:''}
+ ${work.length?`<div class="sec"><h2>${T('The work','El trabajo')}</h2></div><div class="card">${work.map(([id,q])=>{const it=plant(id);return `<div class="item" style="cursor:default"><div class="grow"><div class="t" style="white-space:normal">${esc(it.name)}</div><div class="d" style="white-space:normal">${q.toLocaleString()} ${esc(it.size||it.unit||'')}${descOf(id)?' · '+esc(descOf(id)).slice(0,90):''}</div></div></div>`}).join('')}</div>`:''}
+ ${mats.length?`<div class="sec"><h2>${T('Load list','Lista de carga')}</h2><span class="sub sm">${mats.filter(([id])=>load[id]).length}/${mats.length} ${T('loaded','cargado')}</span></div><div class="card">${mats.map(([id,q])=>{const it=plant(id);return `<button class="check" role="checkbox" aria-checked="${!!load[id]}" data-a="woload" data-id="${j.id}" data-k="${id}"><span class="box">${load[id]?ic('check',16,3.2):''}</span><span style="flex:1;text-align:left"><b class="num">${q.toLocaleString()}</b> × ${esc(it.name)} <span class="sub sm">${esc(it.size||'')}</span></span></button>`}).join('')}</div>`:''}
+ <div class="sec"><h2>${T('Bring','Traer')}</h2></div>
+ <div class="card">${fl.mine.map(a=>`<div class="item" style="cursor:default"><div class="ico green">${ic('truck',18)}</div><div class="grow"><div class="t">${esc(a.name)}</div><div class="d">${esc(a.kind)}${fleetDue(a).length?' · '+esc(fleetDue(a)[0].t):''}</div></div></div>`).join('')}
+  ${fl.other.map(a=>`<div class="item" style="cursor:default"><div class="ico amber">${ic('truck',18)}</div><div class="grow"><div class="t">${esc(a.name)}</div><div class="d">${T('Assigned to another crew. Ask before taking it.','Asignado a otro equipo. Pregunte antes de llevarlo.')}</div></div></div>`).join('')}
+  ${tools.map(t=>`<div class="item" style="cursor:default;min-height:44px"><div class="ico">${ic('check',16)}</div><div class="grow"><div class="t" style="font-weight:600">${crewSide&&isES()?t[1]:t[0]}</div></div></div>`).join('')}
+  ${!tools.length&&!fl.mine.length?`<div class="sub sm">${T('Usual truck tools.','Herramientas normales de la camioneta.')}</div>`:''}</div>
+ <div class="sub sm">${T('Suggested from the estimate. Use your judgment on site.','Sugerido según el presupuesto. Use su criterio en el sitio.')}</div>
+ <button class="btn full" data-a="close">${T('Close','Cerrar')}</button></div>`}
 
 /* ---------------- YARD MEASURE ---------------- */
 const FT=0.4; // feet per drawing unit in the sample aerial
@@ -1318,11 +1366,13 @@ const A={
   if(!d.title.trim())return sheet(`<div class="stack"><h2>Name the project</h2><div class="sub">Give it a short name, like "Front bed makeover", so the customer knows what it's for.</div><button class="btn full big go" data-a="close">OK</button></div>`);
   if(!n)return sheet(`<div class="stack"><h2>Add something first</h2><div class="sub">Add at least one plant, material or labor line.</div><button class="btn full big go" data-a="close">OK</button></div>`);
   const id=Math.max(...S.estimates.map(e=>e.id))+1,c=cust(d.cust),lines={};Object.entries(d.lines).forEach(([k,v])=>{if(v>0)lines[k]=v});
-  const back=UI.eback===d.cust;UI.tab=back?'cust':'sales';commit(`Estimate #${id} sent to ${c.name}`,()=>{if(LEADST.includes(c.stage))c.stage='quoted';S.estimates.push({id,cust:d.cust,title:d.title.trim(),status:'sent',sentAgo:'today',date:new Date().toISOString(),lines,photos:{...(d.photos||{})}});S.msgs.push({who:'auto',ch:'Email',t:'Today '+fmtT(now()),kind:'Estimate',text:`Hi ${c.first}, here is your estimate #${id} for ${d.title.trim().toLowerCase()}: ${money(estTotal({lines}))}. Tap the link to approve it. (estimate link)`})});if(back)custSheet(d.cust);scrollTo(0,0)},
+  const back=UI.eback===d.cust;UI.tab=back?'cust':'sales';commit(`Estimate #${id} sent to ${c.name}`,()=>{if(LEADST.includes(c.stage))c.stage='quoted';S.estimates.push({id,cust:d.cust,title:d.title.trim(),mh:d.mh||'',status:'sent',sentAgo:'today',date:new Date().toISOString(),lines,photos:{...(d.photos||{})}});S.msgs.push({who:'auto',ch:'Email',t:'Today '+fmtT(now()),kind:'Estimate',text:`Hi ${c.first}, here is your estimate #${id} for ${d.title.trim().toLowerCase()}: ${money(estTotal({lines}))}. Tap the link to approve it. (estimate link)`})});if(back)custSheet(d.cust);scrollTo(0,0)},
  estsheet:d=>estSheet(d.id),
- approve:d=>{const e=S.estimates.find(x=>x.id==d.id),hrs_=e.lines.m3||4,need=Math.min(480,hrs_*60),day_=[1,2,3,4].find(x=>booked('c1',x)+need+15<=540)||5;close();commit(`#${e.id} approved and put on the schedule`,()=>{e.status='approved';const last=crewDay('c1',day_).slice(-1)[0];S.jobs.push({id:'j'+Date.now(),cust:e.cust,crew:'c1',day:day_,service:'Landscape install',price:estTotal(e),est:need,start:last?last.start+last.est+15:450,status:'todo',startedAt:null,doneAt:null,why:'',checks:{},photo:false});S.msgs.push({who:'auto',ch:'Text',t:'Today '+fmtT(now()),kind:'Estimate approved',text:`Thanks ${cust(e.cust).first}! Your ${e.title.toLowerCase()} is on our schedule for ${day_<5?dayName(day_):'next week'}. We'll text you the day before.`})})},
+ approve:d=>{const e=S.estimates.find(x=>x.id==d.id),hrs_=e.lines.m3||4,need=Math.min(480,hrs_*60),day_=[1,2,3,4].find(x=>booked('c1',x)+need+15<=540)||5;close();commit(`#${e.id} approved. Work order sent to ${crew('c1').lead||'the crew leader'}.`,()=>{e.status='approved';const last=crewDay('c1',day_).slice(-1)[0];S.jobs.push({id:'j'+Date.now(),estId:e.id,cust:e.cust,crew:'c1',day:day_,service:'Landscape install',price:estTotal(e),est:need,start:last?last.start+last.est+15:450,status:'todo',startedAt:null,doneAt:null,why:'',checks:{},photo:false});S.msgs.push({who:'auto',ch:'Text',t:'Today '+fmtT(now()),kind:'Estimate approved',text:`Thanks ${cust(e.cust).first}! Your ${e.title.toLowerCase()} is on our schedule for ${day_<5?dayName(day_):'next week'}. We'll text you the day before.`})})},
  efilter:d=>{UI.ef=d.t;document.querySelectorAll('.fchip[data-a="efilter"]').forEach(c=>c.setAttribute('aria-pressed',c.dataset.t===d.t));$('#elist').innerHTML=estRows();if(d.t)$('#eq').scrollIntoView({block:'start',behavior:'smooth'})},
  newlead:()=>leadForm(),
+ wo:d=>sheet(woView(d.id)),
+ woload:d=>{const j=job(d.id);j.load=j.load||{};j.load[d.k]=!j.load[d.k];save();const y=$('#sheet').scrollTop;sheet(woView(d.id));$('#sheet').scrollTop=y},
  asset:d=>{close();UI.asset=d.id;UI.tab='asset';render();scrollTo(0,0)}, assetform:d=>assetForm(d.id||null), svclog:d=>svcForm(d.id),
  fkind:d=>{UI.fk=d.t;render()},
  assetmeter:d=>{const a=S.fleet.find(x=>x.id===d.id),v=$('#as-m').value.trim();if(v===''||!(+v>=0)){toast('Enter a number');return}if(hasM(a)&&+v<+a.meter){toast(`Can't be lower than ${(+a.meter).toLocaleString()}`);return}commit('Reading saved. Estimate corrected.',()=>applyReading(a,+v))},
@@ -1398,6 +1448,7 @@ document.addEventListener('change',async e=>{const el=e.target,f=el.files?.[0];i
 document.addEventListener('input',e=>{if(e.target.id==='eq'){UI.eq=e.target.value;$('#elist').innerHTML=estRows();return}if(e.target.id==='pq'){UI.pq=e.target.value;UI.pall=false;if(UI.pq&&UI.ptype!=='All'){UI.ptype='All';document.querySelectorAll('.fchip').forEach(c=>c.setAttribute('aria-pressed',c.dataset.t==='All'))}$('#plist').innerHTML=itemRows(catList(),e.target.dataset.mode);return}
  if(e.target.dataset.c==='draft'){if(e.target.value==='__new'){e.target.value=UI.draft.cust;addCust();return}UI.draft[e.target.dataset.k]=e.target.value;if(e.target.dataset.k==='cust')render();return}
  if(e.target.dataset.c==='lineqty'||e.target.dataset.c==='myprice'){const id=e.target.dataset.id,v=parseFloat(e.target.value);if(isNaN(v)||v<0)return;if(e.target.dataset.c==='lineqty')UI.draft.lines[id]=v;else{S.myPrice=S.myPrice||{};S.myPrice[id]=v;save()}const tot=sum(Object.entries(UI.draft.lines).filter(([,n])=>n>0),([i,n])=>priceOf(i)*n);$('#esttot').textContent=money(tot);const lt=document.getElementById('lt-'+id);if(lt)lt.textContent=money(priceOf(id)*(UI.draft.lines[id]||0));pcRefresh();return}
+ if(e.target.dataset.c==='wonotes'){const x=S.estimates.find(y=>y.id==e.target.dataset.id);if(x){x.woNotes=e.target.value;save()}return}
  if(e.target.dataset.c==='mh'){UI.draft.mh=e.target.value;pcRefresh();return}
  if(e.target.dataset.c==='pset'){const k=e.target.dataset.k,v=e.target.value;if(k==='start'||k==='end'){if(/^\d\d-\d\d$/.test(v)){PR()[k]=v;save()}return}const n=parseFloat(v);if(!isNaN(n)&&n>=0){PR()[k]=n;save()}return}
  if(e.target.dataset.c==='plist'){const r=PR()[e.target.dataset.k][+e.target.dataset.i];r[+e.target.dataset.f]=e.target.dataset.f==='1'?(parseFloat(e.target.value)||0):e.target.value;save();return}
