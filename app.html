@@ -301,13 +301,52 @@ function crewSheet(id){const c=crew(id),s=crewInfo(id);
 const pill=j=>({done:'<span class="chip c-green">Done</span>',now:'<span class="chip c-blue">Working</span>',skipped:'<span class="chip c-red">Skipped</span>',todo:'<span class="chip c-gray">'+fmtT(j.start)+'</span>'}[j.status]);
 
 const DOCS=[
- ['w4','Federal W-4','Tax withholding','official','https://www.irs.gov/pub/irs-pdf/fw4.pdf','W-4 federal','Retención de impuestos federales'],
- ['k4','Kentucky K-4','State tax withholding','official','https://www.google.com/search?q=Kentucky+K-4+withholding+certificate+site%3Arevenue.ky.gov','K-4 de Kentucky','Retención de impuestos del estado'],
- ['i9','I-9 and ID','Proof they can work in the US','official','https://www.uscis.gov/i-9','I-9 e identificación','Prueba de que puede trabajar en EE. UU.'],
+ ['w4','Federal W-4','Tax withholding','form','https://www.irs.gov/pub/irs-pdf/fw4.pdf','W-4 federal','Retención de impuestos federales'],
+ ['k4','Kentucky K-4','State tax withholding','form','https://www.google.com/search?q=Kentucky+K-4+withholding+certificate+site%3Arevenue.ky.gov','K-4 de Kentucky','Retención de impuestos del estado'],
+ ['i9','I-9 and ID','Work eligibility and ID photo','form','https://www.uscis.gov/i-9','I-9 e identificación','Elegibilidad para trabajar y foto de ID'],
  ['dd','Direct deposit form','Where to send their pay','form','','Depósito directo','Dónde enviar su pago'],
  ['license',"Driving and vehicle use","License check and company truck rules",'form','','Manejo y uso de vehículos','Licencia y reglas de la camioneta'],
  ['handbook','Handbook and safety sign-off','Rules, equipment safety, PPE','form','','Manual y seguridad','Reglas, seguridad y equipo de protección']];
 const FORMS={
+ w4:{title:['Federal W-4: tax withholding','W-4 federal: retención de impuestos'],
+  fields:[['h1','Step 1: Your information','Paso 1: Su información','hdr'],
+   ['first','First name and middle initial','Nombre e inicial del segundo nombre'],['last','Last name','Apellido'],
+   ['addr','Street address','Dirección'],['city','City, state and ZIP','Ciudad, estado y código postal'],
+   ['ssn','Social Security number','Número de Seguro Social','sens'],
+   ['fs','Filing status','Estado civil para la declaración','sel',[['Single or Married filing separately','Soltero o casado que presenta por separado'],['Married filing jointly or Qualifying surviving spouse','Casado que presenta en conjunto o cónyuge sobreviviente calificado'],['Head of household','Cabeza de familia']]],
+   ['h2','Step 2: More than one job (skip if not)','Paso 2: Más de un trabajo (omita si no aplica)','hdr',['Only if you hold more than one job at a time, or you are married filing jointly and your spouse also works.','Solo si tiene más de un trabajo a la vez, o es casado que presenta en conjunto y su cónyuge también trabaja.']],
+   ['two','There are only two jobs total. I will check this box on the W-4 for the other job too.','Solo hay dos trabajos en total. Marcaré esta casilla también en el W-4 del otro trabajo.','chk'],
+   ['h3','Step 3: Dependents (skip if none)','Paso 3: Dependientes (omita si no tiene)','hdr',['Use Step 3 on the official form to figure the dollar amounts, then enter them here.','Use el Paso 3 del formulario oficial para calcular las cantidades y escríbalas aquí.']],
+   ['kids','Amount for qualifying children under 17 ($)','Cantidad por hijos menores de 17 años ($)','num opt'],
+   ['odep','Amount for other dependents ($)','Cantidad por otros dependientes ($)','num opt'],
+   ['h4','Step 4: Other adjustments (optional)','Paso 4: Otros ajustes (opcional)','hdr'],
+   ['oinc','(a) Other income for the year, not from jobs ($)','(a) Otros ingresos del año que no son de trabajos ($)','num opt'],
+   ['ded','(b) Deductions beyond the standard deduction ($)','(b) Deducciones además de la deducción estándar ($)','num opt'],
+   ['extra','(c) Extra tax to hold back each paycheck ($)','(c) Impuesto adicional a retener en cada pago ($)','num opt'],
+   ['exempt','I claim exemption from withholding: I owed no federal income tax last year and expect to owe none this year.','Reclamo exención de retención: no debí impuesto federal el año pasado y espero no deber este año.','chk']],
+  text:['Under penalties of perjury, I declare that this certificate, to the best of my knowledge and belief, is true, correct, and complete.','Bajo pena de perjurio, declaro que este certificado, según mi leal saber y entender, es verdadero, correcto y completo.']},
+ k4:{title:['Kentucky K-4: state tax withholding','K-4 de Kentucky: retención del estado'],
+  fields:[['name','Full name','Nombre completo'],['ssn','Social Security number','Número de Seguro Social','sens'],
+   ['addr','Home address (street, city, state, ZIP)','Dirección (calle, ciudad, estado, código postal)'],
+   ['ex','Kentucky withholding','Retención de Kentucky','sel',[['Withhold Kentucky tax as normal','Retener el impuesto de Kentucky normalmente'],['Exempt: my household income is low enough for the Family Size Tax Credit','Exento: el ingreso de mi hogar califica para el crédito por tamaño de familia'],['Exempt: I live in a state with a reciprocal agreement with Kentucky (for example Ohio or Indiana)','Exento: vivo en un estado con acuerdo recíproco con Kentucky (por ejemplo Ohio o Indiana)'],['Exempt: I am a military spouse (MSRRA)','Exento: soy cónyuge de un militar (MSRRA)']]],
+   ['home','If you live outside Kentucky, which state?','Si vive fuera de Kentucky, ¿en qué estado?','opt'],
+   ['extra','Extra Kentucky tax to hold back each paycheck ($)','Impuesto adicional de Kentucky a retener en cada pago ($)','num opt']],
+  text:['Under penalties of perjury, I declare that this certificate, to the best of my knowledge and belief, is true, correct, and complete.','Bajo pena de perjurio, declaro que este certificado, según mi leal saber y entender, es verdadero, correcto y completo.']},
+ i9:{title:['I-9: work eligibility','I-9: elegibilidad para trabajar'],
+  fields:[['h1','Section 1: Your information','Sección 1: Su información','hdr',['Finish this by your first day of work.','Termine esto antes de su primer día de trabajo.']],
+   ['last','Last name','Apellido'],['first','First name','Nombre'],['mi','Middle initial','Inicial del segundo nombre','opt'],['other','Other last names used','Otros apellidos que ha usado','opt'],
+   ['addr','Street address and apartment','Dirección y apartamento'],['city','City or town','Ciudad'],['state','State','Estado'],['zip','ZIP code','Código postal'],
+   ['dob','Date of birth','Fecha de nacimiento','date'],['ssn','Social Security number (optional)','Número de Seguro Social (opcional)','sens opt'],
+   ['email','Email (optional)','Correo electrónico (opcional)','opt email'],['phone','Phone (optional)','Teléfono (opcional)','opt tel'],
+   ['status','I am a','Yo soy','sel',[['Citizen of the United States','Ciudadano de los Estados Unidos'],['Noncitizen national of the United States','Nacional no ciudadano de los Estados Unidos'],['Lawful permanent resident','Residente permanente legal'],['Noncitizen authorized to work','No ciudadano autorizado para trabajar']]],
+   ['anum','A-Number or USCIS number (permanent residents; also noncitizens authorized to work if you have one)','Número A o de USCIS (residentes permanentes; también no ciudadanos autorizados si lo tiene)','sens opt'],
+   ['i94','Form I-94 admission number (if no A-Number)','Número de admisión I-94 (si no tiene Número A)','sens opt'],
+   ['pp','Foreign passport number and country (if no A-Number or I-94)','Número de pasaporte extranjero y país (si no tiene Número A ni I-94)','sens opt'],
+   ['wexp','Work permission ends on (noncitizens authorized to work; blank if no end date)','Su permiso de trabajo termina el (no ciudadanos autorizados; en blanco si no termina)','date opt'],
+   ['h2','Photo of your ID','Foto de su identificación','hdr',['Take a clear photo of the front and back. Bring the real cards on your first day so a manager can see them in person.','Tome una foto clara del frente y del reverso. Traiga las tarjetas originales el primer día para que un gerente las vea en persona.']],
+   ['idf','Front of ID','Frente de la identificación','photo'],['idb','Back of ID (or second document)','Reverso de la identificación (o segundo documento)','photo opt']],
+  text:["I am aware that federal law provides for imprisonment and/or fines for false statements, or the use of false documents, in connection with the completion of this form. I attest, under penalty of perjury, that this information is true and correct.","Sé que la ley federal establece prisión y/o multas por declaraciones falsas o por el uso de documentos falsos al llenar este formulario. Declaro, bajo pena de perjurio, que esta información es verdadera y correcta."],
+  check:(v,es)=>{const s=v.status||'';if(s==='Lawful permanent resident'&&!v.anum)return es?'Escriba su Número A o de USCIS.':'Enter your A-Number or USCIS number.';if(s==='Noncitizen authorized to work'&&!v.anum&&!v.i94&&!v.pp)return es?'Escriba su Número A, I-94 o pasaporte.':'Enter your A-Number, I-94 number or passport number.';return ''}},
  dd:{title:['Direct deposit authorization','Autorización de depósito directo'],
   fields:[['bank','Bank name','Nombre del banco'],['type','Account type (checking or savings)','Tipo de cuenta (cheques o ahorros)'],['routing','Routing number (9 digits)','Número de ruta (9 dígitos)','sens'],['acct','Account number','Número de cuenta','sens']],
   text:['I authorize Prime Cut Lawn & Landscaping to deposit my pay into the account above, and to correct any deposit made in error. This stays in effect until I give written notice to change or cancel it.','Autorizo a Prime Cut Lawn & Landscaping a depositar mi pago en la cuenta de arriba y a corregir cualquier depósito hecho por error. Esto sigue vigente hasta que yo avise por escrito para cambiarlo o cancelarlo.']},
@@ -358,23 +397,46 @@ function docSheet(pid,k,crewSide){const p=person(pid),D=DOCS.find(x=>x[0]===k),o
   <label class="btn full big go" style="display:flex;align-items:center;justify-content:center;gap:8px;position:relative;overflow:hidden">${ic('cam',18)} ${on?T('Replace the completed form','Reemplazar el formulario'):T('Upload the completed form','Subir el formulario completo')}<input type="file" accept="image/*,.pdf" data-c="pdoc" data-id="${pid}" data-k="${k}" style="position:absolute;inset:0;opacity:0"></label>
   ${on?`<div class="sub sm">${T('On file','Guardado')} · ${fmtD(on)}${(p.docNames||{})[k]?' · '+esc(p.docNames[k]):''}</div>`:''}
   ${!crewSide?bypassBlock(p,k,on,by):''}${back}</div>`);return}
- const F=FORMS[k],sg=(p.sign||{})[k];
+ const F=FORMS[k],sg=(p.sign||{})[k],sv=((p.form||{})[k])||{};UI.idph={};
  sheet(`<form id="docform" class="stack" novalidate data-id="${pid}" data-k="${k}" data-crew="${crewSide?1:''}"><h2>${es?F.title[1]:F.title[0]}</h2>
   ${on?`<div class="card"><div class="item" style="cursor:default"><div class="ico green">${ic('check',18)}</div><div class="grow"><div class="t">${T('Signed by','Firmado por')} ${esc(sg?sg.name:p.name)}</div><div class="d">${fmtD(on)}</div></div></div></div>`:''}
-  ${(F.fields||[]).map(([id,en,sp,sens])=>`<div class="field"><label for="df-${id}">${es?sp:en}</label><input id="df-${id}" ${sens?'inputmode="numeric" autocomplete="off"':''} value="${sens?'':esc(((p.form||{})[k]||{})[id]||'')}" placeholder="${sens&&on?T('Saved','Guardado'):''}"></div>`).join('')}
+  ${(F.fields||[]).map(f=>fieldHTML(f,sv,on,es,p)).join('')}
   ${F.text?`<div class="card" style="font-size:.92rem;line-height:1.5">${es?F.text[1]:F.text[0]}</div>`:''}
   ${F.rules?`<div class="card">${F.rules.map((r,i)=>`<label class="check" style="cursor:pointer;align-items:flex-start"><input type="checkbox" class="df-rule" ${on?'checked':''} style="width:22px;height:22px;flex:none;accent-color:#29853A;margin-top:2px"> <span>${es?r[1]:r[0]}</span></label>`).join('')}</div>`:''}
   <div class="field"><label for="df-sign">${T('Type your full name to sign','Escriba su nombre completo para firmar')}</label><input id="df-sign" value="${esc(sg?sg.name:'')}" autocomplete="off" style="font-family:'Brush Script MT',cursive;font-size:1.3rem"></div>
   <div id="df-err"></div>
   <button class="btn full big go" type="submit">${on?T('Sign again','Firmar de nuevo'):T('Sign and finish','Firmar y terminar')}</button>
+  ${k==='i9'&&!crewSide&&on?i9Sec2(p):''}
+  ${D[4]?`<div class="sub sm" style="text-align:center">${T('Prefer paper?','¿Prefiere papel?')} <a href="${D[4]}" target="_blank" rel="noopener">${T('Official form','Formulario oficial')}</a> · <label style="color:var(--green-d,#29853A);font-weight:700;cursor:pointer;position:relative">${T('Upload it filled out','Súbalo lleno')}<input type="file" accept="image/*,.pdf" data-c="pdoc" data-id="${pid}" data-k="${k}" style="position:absolute;inset:0;opacity:0;width:100%"></label></div>`:''}
   ${!crewSide?bypassBlock(p,k,on,by):''}${back.replace('class="btn full"','class="btn full" type="button"')}</form>`)}
+function fieldHTML([id,en,sp,fl='',o],sv,on,es,p){const has=w=>fl.split(' ').includes(w),L=es?sp:en,v=sv[id]||'';
+ if(has('hdr'))return `<h3 style="margin-top:8px">${L}</h3>${o?`<div class="sub sm" style="margin-top:-6px">${es?o[1]:o[0]}</div>`:''}`;
+ if(has('chk'))return `<label class="check" style="cursor:pointer;align-items:flex-start"><input type="checkbox" id="df-${id}" ${v==='yes'?'checked':''} style="width:22px;height:22px;flex:none;accent-color:#29853A;margin-top:2px"> <span>${L}</span></label>`;
+ if(has('sel'))return `<div class="field"><label for="df-${id}">${L}</label><select id="df-${id}"><option value="">${es?'Elija uno':'Pick one'}</option>${o.map(x=>`<option value="${esc(x[0])}" ${x[0]===v?'selected':''}>${es?x[1]:x[0]}</option>`).join('')}</select></div>`;
+ if(has('photo')){const src=((p.idPhotos||{})[id])||'';return `<div class="field"><label>${L}</label><label class="btn full" style="display:flex;align-items:center;justify-content:center;gap:8px;position:relative;overflow:hidden;min-height:${src?'auto':'64px'};padding:${src?'6px':''}"><img id="dfp-${id}" alt="" src="${src}" style="max-width:100%;max-height:220px;border-radius:10px;${src?'':'display:none'}"><span id="dfl-${id}" style="display:flex;align-items:center;gap:8px;${src?'display:none':''}">${ic('cam',18)} ${es?'Tomar foto':'Take photo'}</span><input type="file" accept="image/*" capture="environment" data-c="idph" data-f="${id}" style="position:absolute;inset:0;opacity:0"></label></div>`}
+ const sens=has('sens'),type=has('date')?'date':has('email')?'email':has('tel')?'tel':'text';
+ return `<div class="field"><label for="df-${id}">${L}</label><input id="df-${id}" type="${type}" ${has('num')?'inputmode="decimal"':''} ${sens?'inputmode="numeric" autocomplete="off"':''} value="${sens?'':esc(v)}" placeholder="${sens&&v?(es?'Guardado ':'Saved ')+esc(v):''}"></div>`}
+function i9Sec2(p){const c=p.i9check||{};const fi=(id,l,t='text')=>`<div class="field"><label for="s2-${id}">${l}</label><input id="s2-${id}" type="${t}" value="${esc(c[id]||'')}"></div>`;
+ return `<div class="card stack" style="gap:10px"><h3>Section 2: Manager checks ID in person</h3><div class="sub sm">Within 3 business days of their first day, look at the original documents: one from List A, or one from List B plus one from List C.</div>
+ ${fi('first','First day of work','date')}${fi('d1','Document 1 (example: US passport or driver\'s license)')}${fi('d1x','Document 1 expiration','date')}${fi('d2','Document 2, if List B + C (example: Social Security card)')}
+ <div id="s2-err"></div><button class="btn full dark" type="button" data-a="i9s2" data-id="${p.id}">${c.at?'Update':'Save'} Section 2 as Hunter</button>${c.at?`<div class="sub sm">Checked by ${esc(c.by)} · ${fmtD(c.at)}</div>`:''}</div>`}
 function bypassBlock(p,k,on,by){if(on)return '';return by?`<div class="card"><div class="item" style="cursor:default"><div class="ico blue">${ic('check',18)}</div><div class="grow"><div class="t">Skipped by ${esc(by.by)}</div><div class="d" style="white-space:normal">${esc(by.reason)} · ${fmtD(by.at)}</div></div><button class="btn sm" type="button" data-a="unbypass" data-id="${p.id}" data-k="${k}">Undo</button></div></div>`:`<button class="btn full" type="button" data-a="bypass" data-id="${p.id}" data-k="${k}">Manager: skip this paper</button>`}
-function saveDoc(){const f=$('#docform'),pid=f.dataset.id,k=f.dataset.k,crewSide=!!f.dataset.crew,p=person(pid),F=FORMS[k],es=crewSide&&isES();
- const vals={};for(const [id,,,sens] of (F.fields||[])){const v=$('#df-'+id).value.trim();if(!v&&!((p.docs||{})[k]&&sens)){$('#df-err').innerHTML=`<div class="err">${es?'Llene todos los campos.':'Fill in every box.'}</div>`;return}if(!sens)vals[id]=v;else if(v)vals[id]='•••• '+v.slice(-4)}
- if(F.rules&&[...document.querySelectorAll('.df-rule')].some(x=>!x.checked)){$('#df-err').innerHTML=`<div class="err">${es?'Marque cada regla para confirmar que la leyó.':'Check each rule to show you read it.'}</div>`;return}
- if(k==='dd'&&vals.routing!==undefined&&!/^\d{9}$/.test($('#df-routing').value.trim())){$('#df-err').innerHTML=`<div class="err">${es?'El número de ruta tiene 9 dígitos.':'The routing number is 9 digits.'}</div>`;return}
- const nm=$('#df-sign').value.trim();if(nm.split(/\s+/).length<2){$('#df-err').innerHTML=`<div class="err">${es?'Escriba su nombre y apellido.':'Type your first and last name.'}</div>`;return}
- close();commit(es?'Firmado. ¡Gracias!':`${F.title[0]} signed`,()=>{p.docs=p.docs||{};p.form=p.form||{};p.sign=p.sign||{};p.docs[k]=new Date().toISOString();p.form[k]={...(p.form[k]||{}),...vals};p.sign[k]={name:nm,at:p.docs[k]};if(p.docBypass)delete p.docBypass[k]});
+function saveDoc(){const f=$('#docform'),pid=f.dataset.id,k=f.dataset.k,crewSide=!!f.dataset.crew,p=person(pid),F=FORMS[k],es=crewSide&&isES(),done=(p.docs||{})[k],old=((p.form||{})[k])||{};
+ let needPh=0;const vals={},raw={},bad=m=>{$('#df-err').innerHTML=`<div class="err">${m}</div>`;$('#df-err').scrollIntoView({block:'center'})};
+ for(const [id,,,fl=''] of (F.fields||[])){const has=w=>fl.split(' ').includes(w);if(has('hdr'))continue;
+  if(has('photo')){const src=UI.idph[id]||((p.idPhotos||{})[id]);if(!src&&!has('opt'))needPh=1;continue}
+  const el=$('#df-'+id);if(has('chk')){vals[id]=el.checked?'yes':'no';continue}
+  const v=el.value.trim();raw[id]=v||(has('sens')?old[id]:'');
+  if(!v){if(has('sens')&&old[id]){vals[id]=old[id];continue}if(!has('opt'))return bad(es?'Llene todos los campos requeridos.':'Fill in every required box.');vals[id]='';continue}
+  if(has('num')&&!(+v.replace(/[$,]/g,'')>=0))return bad(es?'Escriba solo números en las cantidades.':'Use numbers only in the dollar boxes.');
+  vals[id]=has('sens')?'•••• '+v.slice(-4):v}
+ if(F.rules&&[...document.querySelectorAll('.df-rule')].some(x=>!x.checked))return bad(es?'Marque cada regla para confirmar que la leyó.':'Check each rule to show you read it.');
+ if(k==='dd'&&$('#df-routing').value.trim()&&!/^\d{9}$/.test($('#df-routing').value.trim()))return bad(es?'El número de ruta tiene 9 dígitos.':'The routing number is 9 digits.');
+ if((k==='w4'||k==='k4')&&$('#df-ssn').value.trim()&&$('#df-ssn').value.replace(/\D/g,'').length!==9)return bad(es?'El Seguro Social tiene 9 dígitos.':'The Social Security number is 9 digits.');
+ if(F.check){const m=F.check(raw,es);if(m)return bad(m)}
+ if(needPh)return bad(es?'Tome una foto del frente de su identificación.':'Take a photo of the front of the ID.');
+ const nm=$('#df-sign').value.trim();if(nm.split(/\s+/).length<2)return bad(es?'Escriba su nombre y apellido.':'Type your first and last name.');
+ const ph=UI.idph;close();commit(es?'Firmado. ¡Gracias!':`${F.title[0].split(':')[0]} signed`,()=>{p.docs=p.docs||{};p.form=p.form||{};p.sign=p.sign||{};p.docs[k]=new Date().toISOString();p.form[k]={...old,...vals};p.sign[k]={name:nm,at:p.docs[k]};if(Object.keys(ph).length)p.idPhotos={...(p.idPhotos||{}),...ph};if(p.docBypass)delete p.docBypass[k]});
  if(!crewSide){UI.person=pid;UI.tab='person';render()}}
 function bypassSheet(pid,k,err=''){const p=person(pid),D=DOCS.find(x=>x[0]===k);
  sheet(`<form id="bypassform" class="stack" novalidate data-id="${pid}" data-k="${k}"><h2>Skip ${esc(D[1])}?</h2><div class="sub">${esc(p.name.split(' ')[0])} will be able to clock in without it. Your name, the reason and the date are saved on their record.</div>${err?`<div class="err">${err}</div>`:''}
@@ -556,7 +618,7 @@ function today(){
  </div>`;
 }
 function papersView(p){const left=papersLeft(p);
- return `<div class="stack"><div><div class="sub sm">${tr('Welcome to Prime Cut','Bienvenido a Prime Cut')}</div><h1>${tr('Hi','Hola')}, ${esc(p.name.split(' ')[0])}</h1></div>
+ return `<div class="stack"><div style="display:flex;align-items:flex-end;justify-content:space-between;gap:10px"><div><div class="sub sm">${tr('Welcome to Prime Cut','Bienvenido a Prime Cut')}</div><h1>${tr('Hi','Hola')}, ${esc(p.name.split(' ')[0])}</h1></div><button class="btn sm" data-a="lang" style="background:var(--card);box-shadow:var(--shadow)" aria-label="${tr('Switch to Spanish','Cambiar a inglés')}">${tr('Español','English')}</button></div>
  <div class="card"><div class="item" style="cursor:default"><div class="ico amber">${ic('doc',20)}</div><div class="grow"><div class="t" style="white-space:normal">${tr('Finish your hiring papers to start','Termine sus papeles de contratación para empezar')}</div><div class="d" style="white-space:normal">${tr(`${left.length} left. You can clock in when they're done.`,`Faltan ${left.length}. Podrá marcar entrada cuando termine.`)}</div></div></div></div>
  <div class="card">${DOCS.map(([k,l,d,,,les,des])=>{const on=docDone(p,k);return `<button class="item" data-a="mydoc" data-k="${k}"><div class="ico ${on?'green':'amber'}">${ic(on?'check':'doc',18)}</div><div class="grow"><div class="t">${tr(l,les)}</div><div class="d">${on?tr('Done','Listo'):tr(d,des)}</div></div><span class="chev">${ic('chev',16)}</span></button>`}).join('')}</div></div>`}
 function jobView(){
@@ -997,6 +1059,7 @@ const A={
  route:d=>{UI.rcrew=d.id;UI.tab='route';render();scrollTo(0,0)}, optroute:()=>optRoute(), useorder:()=>useOrder(),
  person:d=>{close();UI.person=d.id;UI.tab='person';render();scrollTo(0,0)},
  hire:d=>hireForm(d.id||null), letgo:d=>letGo(d.id),
+ i9s2:d=>{const p=person(d.id),g=id=>$('#s2-'+id).value.trim(),c={first:g('first'),d1:g('d1'),d1x:g('d1x'),d2:g('d2')};if(!c.first||!c.d1){$('#s2-err').innerHTML='<div class="err">Add the first day of work and at least one document.</div>';return}commit('Section 2 saved',()=>{p.i9check={...c,by:'Hunter',at:new Date().toISOString()}});docSheet(p.id,'i9',false)},
  rehire:d=>{const p=person(d.id);commit(`${p.name} is back on the team`,()=>{p.gone=false;p.crew=S.crews[0].id;p.start=new Date().toISOString().slice(0,10);delete p.endDate})},
  qbo:()=>sheet(`<div class="stack"><h2>QuickBooks</h2><div class="sub">Once connected to the client's QuickBooks Online account, Prime Cut sends these on its own:</div><div class="card">${['New hires, with pay rate and start date','Weekly hours from crew clock-in','Last days, marked inactive','Invoices and payments (Phase 4)'].map(x=>`<div class="item" style="cursor:default"><div class="ico green">${ic('check',16)}</div><div class="grow">${x}</div></div>`).join('')}</div>${(S.qboLog||[]).length?`<div class="sub sm">Recent</div><div class="card">${S.qboLog.slice(-5).reverse().map(x=>`<div class="item" style="cursor:default"><div class="grow d">${esc(x)}</div></div>`).join('')}</div>`:''}<div class="sub sm">Connecting needs the app on secure hosting with logins, under the client's own QuickBooks account. This preview shows how it will work.</div><button class="btn full ${S.qbo?'':'go'}" data-a="qbotoggle">${S.qbo?'Disconnect (preview)':'Turn on in preview'}</button><button class="btn full" data-a="close">Close</button></div>`),
  qbotoggle:()=>{S.qbo=!S.qbo;save();close();render();toast(S.qbo?'QuickBooks on (preview only)':'QuickBooks off')},
@@ -1086,6 +1149,7 @@ document.addEventListener('submit',e=>{e.preventDefault();const f=e.target;
   const kind=f.querySelector('.opt[aria-pressed="true"]').dataset.w,j=job(f.dataset.id);close();commit(tr('Sent. Hunter will see it right away.','Enviado. Hunter lo verá de inmediato.'),()=>S.problems.push({kind,text:t,where:cust(j.cust).address.split(',')[0]}))}});
 document.addEventListener('change',async e=>{const el=e.target,f=el.files?.[0];if(!f)return;
  if(el.dataset.c==='photo'){const j=job(el.dataset.id);try{PHOTO[j.id]=URL.createObjectURL(f)}catch(_){}j.photo=true;save();render();const crew=S.crews.find(c=>c.id===j.crew);await keepPhoto(f,{cust:j.cust,job:j.id,label:j.service+' · after photo',by:crew?crew.name:''})}
+ if(el.dataset.c==='idph'){try{const src=await shrink(f);UI.idph[el.dataset.f]=src;const im=$('#dfp-'+el.dataset.f);if(im){im.src=src;im.style.display='';$('#dfl-'+el.dataset.f).style.display='none';im.parentElement.style.minHeight='auto'}}catch(_){toast(tr("That photo couldn't be used",'No se pudo usar esa foto'))}}
  if(el.dataset.c==='pdoc'){const p=person(el.dataset.id);p.docs=p.docs||{};p.docNames=p.docNames||{};p.docs[el.dataset.k]=new Date().toISOString();p.docNames[el.dataset.k]=f.name.slice(0,40);if(p.docBypass)delete p.docBypass[el.dataset.k];save();close();render();toast(tr('Form saved','Formulario guardado'))}
  if(el.dataset.c==='cphoto'){const c=cust(el.dataset.id);if(await keepPhoto(f,{cust:c.id,label:'Photo'})){render();toast(`Photo saved to ${c.name}`)}else toast("That photo couldn't be saved")}
  if(el.dataset.c==='lphoto'){const d=UI.draft,it=plant(el.dataset.id);const n=(S.photos||[]).length;if(await keepPhoto(f,{cust:d.cust,label:'Estimate photo · '+it.name})){d.photos=d.photos||{};d.photos[el.dataset.id]=S.photos[S.photos.length-1].id;render();toast('Photo attached. It is also saved on the customer.')}}
