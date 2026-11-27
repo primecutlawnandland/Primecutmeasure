@@ -49,6 +49,13 @@ a.btn{display:flex;align-items:center;justify-content:center;text-decoration:non
 .sum .t{font-weight:700;border-top:1px solid var(--line);padding-top:6px;margin-top:2px}
 .sum .src{font-size:.75rem;color:var(--sub)}
 .sum .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.edit{background:var(--bg);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px;margin:4px 0}
+.edit label{font-size:.75rem;color:var(--sub);display:flex;flex-direction:column;gap:3px}
+.edit input{min-height:44px;border:1.5px solid var(--line);border-radius:12px;padding:0 10px;background:var(--card)}
+.edit .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.edit .g2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.btn.del{color:var(--red)}
+.area{cursor:pointer}
 .setup{padding:20px max(16px,env(safe-area-inset-right,0px)) 20px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:12px;max-width:520px;margin:0 auto}
 .setup input{min-height:52px;border:1.5px solid var(--line);border-radius:14px;padding:0 14px;background:var(--card)}
 </style>
@@ -57,7 +64,7 @@ a.btn{display:flex;align-items:center;justify-content:center;text-decoration:non
 <div class="app">
   <header>
     <svg width="34" height="34" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#4ABC39"/><path d="M9 26c1-6 2-11 4-15M14 26c0-7 1-13 3-18M19 26c0-6 2-11 5-14" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg>
-    <div><b>PRIME CUT</b><small>YARD MEASURE · V6.1</small></div>
+    <div><b>PRIME CUT</b><small>YARD MEASURE · V7</small></div>
     <a class="back" id="back" href="https://claude.ai/artifact/8uRm1MjYwkNW4zAQF8J3VF">&#8249; Back</a>
   </header>
 
@@ -242,18 +249,49 @@ $('#keep').onclick=()=>{
   saveRec(rec);
 };
 function saveRec(rec){
-  saved.unshift(rec);saved=saved.slice(0,30);store.set('pc-areas',JSON.stringify(saved));renderSaved();clearPts();
-  const data={cust:rec.cust,addr:rec.addr,sqft:rec.sqft,ft:rec.ft,lot:rec.lot||0,snow:rec.snow||0};
+  saved.unshift(rec);saved=saved.slice(0,30);persist();editing=-1;renderSaved();clearPts();
+  sendRec(rec,'Saved');
+}
+function hasOpener(){try{return !!(window.opener&&!window.opener.closed)}catch(e){return false}}
+function sendRec(rec,word){
+  const data={cust:rec.cust||custId||'',addr:rec.addr,sqft:rec.sqft,ft:rec.ft,lot:rec.lot||0,snow:rec.snow||0};
   const payload='PRIMECUT-MEASURE '+JSON.stringify(data);
   const backUrl=$('#back').href.split('#')[0]+'#pcm='+encodeURIComponent(JSON.stringify(data));
-  $('#msg').innerHTML='<div class="done"><div id="dtxt">Saved and copied. Back in Prime Cut it fills in by itself.</div><b id="dnum"></b><a class="btn go" id="dback">&#8249; Back to Prime Cut</a></div>';
-  $('#dback').href=backUrl;
-  $('#dnum').textContent=rec.sqft.toLocaleString()+' sq ft grass · '+rec.ft.toLocaleString()+' ft around'+(rec.snow?' · '+rec.snow.toLocaleString()+' sq ft snow':'');
-  try{navigator.clipboard.writeText(payload).catch(()=>{$('#dtxt').textContent='Saved. Tap Back to Prime Cut to send it over.'})}catch(e){}
+  $('#msg').innerHTML='<div class="done"><div id="dtxt"></div><b id="dnum"></b><a class="btn go" id="dback">&#8249; Back to Prime Cut</a></div>';
+  $('#dnum').textContent=data.sqft.toLocaleString()+' sq ft grass · '+data.ft.toLocaleString()+' ft around'+(data.snow?' · '+data.snow.toLocaleString()+' sq ft snow':'');
   $('#msg').scrollIntoView({behavior:'smooth',block:'nearest'});
+  if(hasOpener()){
+    try{window.opener.postMessage(payload,'*')}catch(e){}
+    $('#dtxt').textContent=word+' and sent to Prime Cut.';
+    $('#dback').href='#';$('#dback').onclick=e=>{e.preventDefault();goBack()};
+    setTimeout(()=>{try{window.opener.focus()}catch(e){}window.close()},600);
+    return}
+  $('#dtxt').textContent=word+' and copied. Back in Prime Cut it fills in by itself.';
+  $('#dback').href=backUrl;
+  try{navigator.clipboard.writeText(payload).catch(()=>{$('#dtxt').textContent=word+'. Tap Back to Prime Cut to send it over.'})}catch(e){}
 }
+function goBack(){if(hasOpener()){try{window.opener.focus()}catch(e){}window.close();return true}return false}
+$('#back').addEventListener('click',e=>{if(goBack())e.preventDefault()});
+let editing=-1;
+function persist(){store.set('pc-areas',JSON.stringify(saved))}
 function renderSaved(){const box=$('#areas');box.textContent='';
-  saved.forEach(s=>{const d=document.createElement('div');d.className='area';const a=document.createElement('span');a.textContent=s.addr;const b=document.createElement('b');b.textContent=s.sqft.toLocaleString()+' sq ft · '+s.ft.toLocaleString()+' ft'+(s.snow?' · snow '+s.snow.toLocaleString():'');d.append(a,b);d.style.cursor='pointer';d.onclick=()=>{$('#addr').value=s.addr;find()};box.append(d)})}
+  saved.forEach((s,i)=>{
+    if(i===editing){box.append(editBox(s,i));return}
+    const d=document.createElement('div');d.className='area';const a=document.createElement('span');a.textContent=s.addr;const b=document.createElement('b');b.textContent=s.sqft.toLocaleString()+' sq ft · '+s.ft.toLocaleString()+' ft'+(s.snow?' · snow '+s.snow.toLocaleString():'');d.append(a,b);
+    d.onclick=()=>{editing=i;renderSaved()};box.append(d)})}
+function editBox(s,i){
+  const w=document.createElement('div');w.className='edit';
+  w.innerHTML='<label>Address<input data-f="addr"></label><div class="g3"><label>Grass sq ft<input data-f="sqft" inputmode="numeric"></label><label>Feet around<input data-f="ft" inputmode="numeric"></label><label>Snow sq ft<input data-f="snow" inputmode="numeric"></label></div>'+
+    '<div class="g2"><button class="btn go" data-a="send">Save and send</button><button class="btn" data-a="map">Show on map</button></div><div class="g2"><button class="btn del" data-a="del">Delete</button><button class="btn" data-a="cancel">Cancel</button></div>';
+  const v=f=>w.querySelector('[data-f='+f+']');
+  v('addr').value=s.addr;v('sqft').value=s.sqft;v('ft').value=s.ft;v('snow').value=s.snow||0;
+  const num=f=>Math.max(0,Math.round(parseFloat(String(v(f).value).replace(/,/g,''))||0));
+  w.querySelector('[data-a=send]').onclick=()=>{s.addr=v('addr').value.trim()||s.addr;s.sqft=num('sqft');s.ft=num('ft');s.snow=num('snow');persist();editing=-1;renderSaved();sendRec(s,'Updated')};
+  w.querySelector('[data-a=map]').onclick=()=>{editing=-1;$('#addr').value=s.addr;renderSaved();find()};
+  w.querySelector('[data-a=cancel]').onclick=()=>{editing=-1;renderSaved()};
+  const del=w.querySelector('[data-a=del]');
+  del.onclick=()=>{if(del.dataset.sure){saved.splice(i,1);persist();editing=-1;renderSaved();return}del.dataset.sure=1;del.textContent='Tap again to delete'};
+  return w}
 boot();
 })();
 </script>
