@@ -41,6 +41,14 @@ a.btn{display:flex;align-items:center;justify-content:center;text-decoration:non
 .sug li{padding:12px;border-radius:10px;cursor:pointer;font-size:.95rem;line-height:1.3}
 .sug li small{display:block;color:var(--sub);font-size:.8rem}
 .sug li:hover,.sug li[aria-selected="true"]{background:var(--mint)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips button{min-height:40px;padding:0 12px;border-radius:999px;border:1.5px solid var(--line);background:var(--card);font-weight:600;font-size:.86rem;cursor:pointer}
+.chips button.on{background:var(--deep);border-color:var(--deep);color:#fff}
+.sum{background:var(--bg);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;font-size:.92rem}
+.sum .l{display:flex;justify-content:space-between;gap:8px}
+.sum .t{font-weight:700;border-top:1px solid var(--line);padding-top:6px;margin-top:2px}
+.sum .src{font-size:.75rem;color:var(--sub)}
+.sum .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
 .setup{padding:20px max(16px,env(safe-area-inset-right,0px)) 20px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:12px;max-width:520px;margin:0 auto}
 .setup input{min-height:52px;border:1.5px solid var(--line);border-radius:14px;padding:0 14px;background:var(--card)}
 </style>
@@ -49,7 +57,7 @@ a.btn{display:flex;align-items:center;justify-content:center;text-decoration:non
 <div class="app">
   <header>
     <svg width="34" height="34" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#4ABC39"/><path d="M9 26c1-6 2-11 4-15M14 26c0-7 1-13 3-18M19 26c0-6 2-11 5-14" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg>
-    <div><b>PRIME CUT</b><small>YARD MEASURE · V5.1</small></div>
+    <div><b>PRIME CUT</b><small>YARD MEASURE · V6</small></div>
     <a class="back" id="back" href="https://claude.ai/artifact/8uRm1MjYwkNW4zAQF8J3VF">&#8249; Back</a>
   </header>
 
@@ -69,7 +77,9 @@ a.btn{display:flex;align-items:center;justify-content:center;text-decoration:non
     <div class="hint" id="hint">Find the address, then tap each corner of the grass. Tap the first dot to finish.</div>
     <div id="msg"></div>
     <div class="nums"><div class="num"><b id="area">0</b><span>Square feet</span></div><div class="num"><b id="per">0</b><span>Feet around</span></div></div>
+    <div class="chips" id="chips"><button data-k="grass" class="on">Grass</button><button data-k="house">House</button><button data-k="drive">Driveway / walks</button><button data-k="other">Beds / other</button></div>
     <div class="row"><button class="btn" id="undo">Undo dot</button><button class="btn" id="clear">Clear</button><button class="btn go" id="keep">Finish</button></div>
+    <div class="sum" id="sum" hidden></div>
     <div class="areas" id="areas"></div>
   </div>
 </div>
@@ -83,7 +93,7 @@ const BUILT_IN_KEY = 'AIzaSyDOlhbueW1QlluRrtb3giU_cf43_USY1fw';
 const $=s=>document.querySelector(s);
 const store={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
 const SQM_TO_SQFT=10.7639, M_TO_FT=3.28084;
-let map,geocoder,poly,line,pin=null,custId='',markers=[],pts=[],closed=false,saved=JSON.parse(store.get('pc-areas')||'[]');
+let map,geocoder,poly,line,pin=null,kind='grass',shapes=[],lot=null,lotReq=0,custId='',markers=[],pts=[],closed=false,saved=JSON.parse(store.get('pc-areas')||'[]');
 
 function boot(){
   const key=(BUILT_IN_KEY||'').trim()||store.get('pc-gmaps-key');
@@ -145,13 +155,57 @@ function showPin(loc,label){
   if(!pin)pin=new google.maps.Marker({map,clickable:false,zIndex:1,animation:google.maps.Animation.DROP});
   pin.setPosition(loc);pin.setTitle(label||'');pin.setMap(map);
   map.setCenter(loc);map.setZoom(20);
+  loadLot(loc);
 }
+const KINDS={grass:{label:'Grass',color:'#4ABC39'},house:{label:'House',color:'#B9C2BE'},drive:{label:'Driveway / walks',color:'#2F3A40'},other:{label:'Beds / other',color:'#B07A3B'}};
+const PARCELS=[
+  {county:'Boone',url:'https://secure.boonecountygis.com/server/rest/services/ParcelLayers/MapServer/0/query'},
+  {county:'Kenton',url:'https://maps.linkgis.org/server/rest/services/CC_KC_PCTheme/MapServer/13/query'},
+  {county:'Campbell',url:'https://maps.linkgis.org/server/rest/services/CC_KC_PCTheme/MapServer/7/query'}];
+function clearLot(){if(lot&&lot.poly)lot.poly.setMap(null);lot=null;shapes.forEach(x=>x.poly.setMap(null));shapes=[];renderSum()}
+function loadLot(loc){
+  clearLot();const my=++lotReq;
+  const lat=typeof loc.lat==='function'?loc.lat():loc.lat,lng=typeof loc.lng==='function'?loc.lng():loc.lng;
+  const q='?geometry='+lng+','+lat+'&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=*&returnGeometry=true&outSR=4326&f=json';
+  Promise.any(PARCELS.map(src=>fetch(src.url+q).then(r=>r.json()).then(j=>{const f=j&&j.features&&j.features[0];if(!f||!f.geometry||!f.geometry.rings)throw 0;return{src,f}})))
+  .then(({src,f})=>{if(my!==lotReq)return;
+    const paths=f.geometry.rings.map(ring=>ring.map(([x,y])=>({lat:y,lng:x})));
+    const sph=google.maps.geometry.spherical;
+    let outer=paths[0];paths.forEach(pp=>{if(sph.computeArea(pp)>sph.computeArea(outer))outer=pp});
+    const a=f.attributes||{};
+    lot={poly:new google.maps.Polygon({map,paths,strokeColor:'#FFD400',strokeWeight:3,fillOpacity:0,clickable:false,zIndex:0}),
+      sqft:Math.round(sph.computeArea(outer)*SQM_TO_SQFT),ft:Math.round(sph.computeLength(outer.concat([outer[0]]))*M_TO_FT),
+      county:src.county,pid:a.PIDN||''};
+    const b=new google.maps.LatLngBounds();outer.forEach(pt=>b.extend(pt));map.fitBounds(b,30);
+    renderSum();})
+  .catch(()=>{if(my!==lotReq)return;$('#msg').innerHTML='<div class="hint">Property lines aren\'t available for this address (they work in Boone, Kenton and Campbell). You can still tap to measure.</div>'});
+}
+function sumKind(k){return shapes.filter(x=>x.kind===k).reduce((t,x)=>t+x.sqft,0)}
+function renderSum(){const box=$('#sum');
+  if(!lot&&!shapes.length){box.hidden=true;box.textContent='';return}
+  const f=n=>Math.round(n).toLocaleString()+' sq ft';
+  const house=sumKind('house'),drive=sumKind('drive'),other=sumKind('other');
+  let h='';
+  if(lot){h+='<div class="l"><span>Lot</span><b>'+f(lot.sqft)+'</b></div>';
+    if(house)h+='<div class="l"><span>− House</span><span>'+f(house)+'</span></div>';
+    if(drive)h+='<div class="l"><span>− Driveway / walks</span><span>'+f(drive)+'</span></div>';
+    if(other)h+='<div class="l"><span>− Beds / other</span><span>'+f(other)+'</span></div>';
+    h+='<div class="l t"><span>Grass</span><span>'+f(Math.max(0,lot.sqft-house-drive-other))+'</span></div>';}
+  if(drive)h+='<div class="l t"><span>Snow (driveway / walks)</span><span>'+f(drive)+'</span></div>';
+  if(lot)h+='<div class="src">Lot lines from '+lot.county+' County'+(lot.pid?' · parcel '+lot.pid:'')+'. Tap House and Driveway above, then trace each one.</div>';
+  h+='<div class="row2"><button class="btn" id="undoshape">Undo last shape</button><button class="btn go" id="savesum">Save</button></div>';
+  box.innerHTML=h;box.hidden=false;
+  $('#undoshape').disabled=!shapes.length;
+  $('#undoshape').onclick=()=>{const x=shapes.pop();if(x)x.poly.setMap(null);renderSum()};
+  $('#savesum').onclick=()=>{const rec={addr:$('#addr').value.trim()||'Unnamed',sqft:lot?Math.max(0,lot.sqft-house-drive-other):0,ft:lot?lot.ft:0,lot:lot?lot.sqft:0,snow:drive,when:new Date().toLocaleDateString(),cust:custId};saveRec(rec)};
+}
+document.querySelectorAll('#chips button').forEach(b=>b.onclick=()=>{kind=b.dataset.k;document.querySelectorAll('#chips button').forEach(x=>x.classList.toggle('on',x===b));clearPts()});
 function find(){hideSug();
   const a=$('#addr').value.trim();if(!a)return;
   geocoder.geocode({address:a,region:'us'},(res,status)=>{
     if(status!=='OK'||!res[0]){$('#msg').innerHTML='<div class="err">Could not find that address. Add the city and KY.</div>';return}
     const g=res[0],exact=!g.partial_match&&/ROOFTOP|RANGE_INTERPOLATED/.test(g.geometry.location_type||'');
-    if(!exact){$('#msg').innerHTML='<div class="err">Couldn\'t find that exact address. Check it and try again, or pick one from the suggestions.</div>';map.fitBounds(g.geometry.viewport);clearPts();return}
+    if(!exact){clearLot();$('#msg').innerHTML='<div class="err">Couldn\'t find that exact address. Check it and try again, or pick one from the suggestions.</div>';map.fitBounds(g.geometry.viewport);clearPts();return}
     $('#msg').innerHTML='';store.set('pc-last-addr',a);
     showPin(g.geometry.location,a);clearPts();
   });
@@ -162,14 +216,16 @@ function draw(){
   markers.forEach(m=>m.setMap(null));markers=[];
   pts.forEach((p,i)=>{const m=new google.maps.Marker({map,position:p,clickable:i===0&&!closed,icon:{path:google.maps.SymbolPath.CIRCLE,scale:i===0?8:6,fillColor:i===0?'#4ABC39':'#FFFFFF',fillOpacity:1,strokeColor:'#1D6A2D',strokeWeight:2}});
     if(i===0)m.addListener('click',()=>{if(pts.length>=3){closed=true;draw()}});markers.push(m)});
+  poly.setOptions({fillColor:KINDS[kind].color});
   if(closed){poly.setPath(pts);line.setPath([])}else{poly.setPath([]);line.setPath(pts)}
   const sph=google.maps.geometry.spherical;
   const area=closed?sph.computeArea(pts)*SQM_TO_SQFT:0;
   const per=pts.length>1?sph.computeLength(closed?pts.concat([pts[0]]):pts)*M_TO_FT:0;
   $('#area').textContent=closed?Math.round(area).toLocaleString():'—';
   $('#per').textContent=Math.round(per).toLocaleString();
-  $('#hint').textContent=closed?'Looks good? Tap Save area. Or Undo dot to keep going.':pts.length?'Keep tapping corners of the grass. Tap Finish when you get back around.':'Find the address, then tap each corner of the grass. Tap Finish when done.';
-  $('#keep').textContent=closed?'Save area':'Finish';
+  const what=kind==='grass'?'the grass':KINDS[kind].label.toLowerCase();
+  $('#hint').textContent=closed?(kind==='grass'?'Looks good? Tap Save area. Or Undo dot to keep going.':'Looks good? Tap Add to take it off the grass.'):pts.length?'Keep tapping corners of '+what+'. Tap Finish when you get back around.':'Tap each corner of '+what+'. Tap Finish when done.';
+  $('#keep').textContent=closed?(kind==='grass'?'Save area':'Add'):'Finish';
 }
 function clearPts(){pts=[];closed=false;draw()}
 $('#undo').onclick=()=>{if(closed)closed=false;else pts.pop();draw()};
@@ -177,17 +233,25 @@ $('#clear').onclick=clearPts;
 $('#keep').onclick=()=>{
   if(!closed){if(pts.length<3){$('#msg').innerHTML='<div class="err">Tap at least 3 corners of the grass first.</div>';return}$('#msg').innerHTML='';closed=true;draw();return}
   const sph=google.maps.geometry.spherical;
+  if(kind!=='grass'){const sq=Math.round(sph.computeArea(pts)*SQM_TO_SQFT);
+    shapes.push({kind,sqft:sq,poly:new google.maps.Polygon({map,paths:pts.slice(),strokeColor:'#FFFFFF',strokeWeight:2,fillColor:KINDS[kind].color,fillOpacity:.55,clickable:false})});
+    clearPts();renderSum();return}
   const rec={addr:$('#addr').value.trim()||'Unnamed',sqft:Math.round(sph.computeArea(pts)*SQM_TO_SQFT),ft:Math.round(sph.computeLength(pts.concat([pts[0]]))*M_TO_FT),when:new Date().toLocaleDateString(),cust:custId};
+  saveRec(rec);
+};
+function saveRec(rec){
   saved.unshift(rec);saved=saved.slice(0,30);store.set('pc-areas',JSON.stringify(saved));renderSaved();clearPts();
-  const payload='PRIMECUT-MEASURE '+JSON.stringify({cust:rec.cust,addr:rec.addr,sqft:rec.sqft,ft:rec.ft});
-  const backUrl=$('#back').href.split('#')[0]+'#pcm='+encodeURIComponent(JSON.stringify({cust:rec.cust,addr:rec.addr,sqft:rec.sqft,ft:rec.ft}));
+  const data={cust:rec.cust,addr:rec.addr,sqft:rec.sqft,ft:rec.ft,lot:rec.lot||0,snow:rec.snow||0};
+  const payload='PRIMECUT-MEASURE '+JSON.stringify(data);
+  const backUrl=$('#back').href.split('#')[0]+'#pcm='+encodeURIComponent(JSON.stringify(data));
   $('#msg').innerHTML='<div class="done"><div id="dtxt">Saved and copied. Back in Prime Cut it fills in by itself.</div><b id="dnum"></b><a class="btn go" id="dback">&#8249; Back to Prime Cut</a></div>';
   $('#dback').href=backUrl;
-  $('#dnum').textContent=rec.sqft.toLocaleString()+' sq ft · '+rec.ft.toLocaleString()+' ft around';
+  $('#dnum').textContent=rec.sqft.toLocaleString()+' sq ft grass · '+rec.ft.toLocaleString()+' ft around'+(rec.snow?' · '+rec.snow.toLocaleString()+' sq ft snow':'');
   try{navigator.clipboard.writeText(payload).catch(()=>{$('#dtxt').textContent='Saved. Tap Back to Prime Cut to send it over.'})}catch(e){}
-};
+  $('#msg').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
 function renderSaved(){const box=$('#areas');box.textContent='';
-  saved.forEach(s=>{const d=document.createElement('div');d.className='area';const a=document.createElement('span');a.textContent=s.addr;const b=document.createElement('b');b.textContent=s.sqft.toLocaleString()+' sq ft · '+s.ft.toLocaleString()+' ft';d.append(a,b);d.style.cursor='pointer';d.onclick=()=>{$('#addr').value=s.addr;find()};box.append(d)})}
+  saved.forEach(s=>{const d=document.createElement('div');d.className='area';const a=document.createElement('span');a.textContent=s.addr;const b=document.createElement('b');b.textContent=s.sqft.toLocaleString()+' sq ft · '+s.ft.toLocaleString()+' ft'+(s.snow?' · snow '+s.snow.toLocaleString():'');d.append(a,b);d.style.cursor='pointer';d.onclick=()=>{$('#addr').value=s.addr;find()};box.append(d)})}
 boot();
 })();
 </script>
