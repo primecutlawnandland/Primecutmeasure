@@ -49,7 +49,7 @@ a.btn{display:flex;align-items:center;justify-content:center;text-decoration:non
 <div class="app">
   <header>
     <svg width="34" height="34" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#4ABC39"/><path d="M9 26c1-6 2-11 4-15M14 26c0-7 1-13 3-18M19 26c0-6 2-11 5-14" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg>
-    <div><b>PRIME CUT</b><small>YARD MEASURE · V5</small></div>
+    <div><b>PRIME CUT</b><small>YARD MEASURE · V5.1</small></div>
     <a class="back" id="back" href="https://claude.ai/artifact/8uRm1MjYwkNW4zAQF8J3VF">&#8249; Back</a>
   </header>
 
@@ -150,8 +150,10 @@ function find(){hideSug();
   const a=$('#addr').value.trim();if(!a)return;
   geocoder.geocode({address:a,region:'us'},(res,status)=>{
     if(status!=='OK'||!res[0]){$('#msg').innerHTML='<div class="err">Could not find that address. Add the city and KY.</div>';return}
+    const g=res[0],exact=!g.partial_match&&/ROOFTOP|RANGE_INTERPOLATED/.test(g.geometry.location_type||'');
+    if(!exact){$('#msg').innerHTML='<div class="err">Couldn\'t find that exact address. Check it and try again, or pick one from the suggestions.</div>';map.fitBounds(g.geometry.viewport);clearPts();return}
     $('#msg').innerHTML='';store.set('pc-last-addr',a);
-    showPin(res[0].geometry.location,a);clearPts();
+    showPin(g.geometry.location,a);clearPts();
   });
 }
 $('#go').onclick=find;$('#addr').addEventListener('keydown',e=>{if(e.key==='Enter')find()});
