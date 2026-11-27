@@ -16,9 +16,13 @@ h1,h2{font-family:var(--head);font-weight:800;margin:0;letter-spacing:-.01em}
 .app{display:flex;flex-direction:column;height:100%;max-width:900px;margin:0 auto}
 header{display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top,0px)) max(14px,env(safe-area-inset-right,0px)) 8px max(14px,env(safe-area-inset-left,0px))}
 header b{font-family:var(--head);color:var(--deep);font-size:1rem;letter-spacing:.02em}
+header .back{margin-left:auto;min-height:40px;padding:0 14px;border-radius:999px;border:1.5px solid var(--line);background:var(--card);color:var(--deep);font-weight:700;font-size:.9rem;text-decoration:none;display:inline-flex;align-items:center;gap:4px}
+.done{background:var(--mint);border-radius:14px;padding:12px;font-size:.92rem;display:flex;flex-direction:column;gap:8px}
+.done b{font-family:var(--head);font-size:1.1rem}
 header small{display:block;font-size:.62rem;letter-spacing:.14em;color:var(--sub);font-weight:600}
 .search{display:flex;gap:8px;padding:0 max(14px,env(safe-area-inset-right,0px)) 10px max(14px,env(safe-area-inset-left,0px))}
 .search input{flex:1;min-width:0;min-height:50px;border:0;border-radius:14px;background:var(--card);box-shadow:var(--shadow);padding:0 14px}
+a.btn{display:flex;align-items:center;justify-content:center;text-decoration:none;color:inherit}
 .btn{min-height:50px;border-radius:14px;border:0;background:var(--card);box-shadow:var(--shadow);padding:0 16px;font-weight:600;cursor:pointer}
 .btn.go{background:var(--green);color:#fff}.btn.dark{background:var(--deep);color:#fff}
 #map{flex:1;min-height:300px;background:#cfd8cc}
@@ -45,7 +49,8 @@ header small{display:block;font-size:.62rem;letter-spacing:.14em;color:var(--sub
 <div class="app">
   <header>
     <svg width="34" height="34" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#4ABC39"/><path d="M9 26c1-6 2-11 4-15M14 26c0-7 1-13 3-18M19 26c0-6 2-11 5-14" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg>
-    <div><b>PRIME CUT</b><small>YARD MEASURE · V3</small></div>
+    <div><b>PRIME CUT</b><small>YARD MEASURE · V4</small></div>
+    <a class="back" id="back" href="https://claude.ai/artifact/8uRm1MjYwkNW4zAQF8J3VF">&#8249; Back</a>
   </header>
 
   <div class="setup" id="setup" hidden>
@@ -64,7 +69,7 @@ header small{display:block;font-size:.62rem;letter-spacing:.14em;color:var(--sub
     <div class="hint" id="hint">Find the address, then tap each corner of the grass. Tap the first dot to finish.</div>
     <div id="msg"></div>
     <div class="nums"><div class="num"><b id="area">0</b><span>Square feet</span></div><div class="num"><b id="per">0</b><span>Feet around</span></div></div>
-    <div class="row"><button class="btn" id="undo">Undo dot</button><button class="btn" id="clear">Clear</button><button class="btn go" id="keep">Save area</button></div>
+    <div class="row"><button class="btn" id="undo">Undo dot</button><button class="btn" id="clear">Clear</button><button class="btn go" id="keep">Finish</button></div>
     <div class="areas" id="areas"></div>
   </div>
 </div>
@@ -104,7 +109,7 @@ function init(){
   geocoder=new google.maps.Geocoder();
   poly=new google.maps.Polygon({map,strokeColor:'#FFFFFF',strokeWeight:3,fillColor:'#4ABC39',fillOpacity:.35,clickable:false});
   line=new google.maps.Polyline({map,strokeColor:'#FFFFFF',strokeWeight:3,clickable:false});
-  map.addListener('click',e=>{if(closed)return;pts.push(e.latLng);draw()});
+  map.addListener('click',e=>{if(closed)return;if(!pts.length)$('#msg').innerHTML='';pts.push(e.latLng);draw()});
   renderSaved();
   let fromApp='';try{fromApp=decodeURIComponent((location.hash.match(/addr=([^&]*)/)||[])[1]||'').trim()}catch(e){}
   if(fromApp){$('#addr').value=fromApp;find()}
@@ -155,17 +160,19 @@ function draw(){
   const per=pts.length>1?sph.computeLength(closed?pts.concat([pts[0]]):pts)*M_TO_FT:0;
   $('#area').textContent=closed?Math.round(area).toLocaleString():'—';
   $('#per').textContent=Math.round(per).toLocaleString();
-  $('#hint').textContent=closed?'Done. Tap Save area, or Clear to redo.':pts.length?'Keep tapping corners. Tap the first dot to finish.':'Find the address, then tap each corner of the grass. Tap the first dot to finish.';
+  $('#hint').textContent=closed?'Looks good? Tap Save area. Or Undo dot to keep going.':pts.length?'Keep tapping corners of the grass. Tap Finish when you get back around.':'Find the address, then tap each corner of the grass. Tap Finish when done.';
+  $('#keep').textContent=closed?'Save area':'Finish';
 }
 function clearPts(){pts=[];closed=false;draw()}
 $('#undo').onclick=()=>{if(closed)closed=false;else pts.pop();draw()};
 $('#clear').onclick=clearPts;
 $('#keep').onclick=()=>{
-  if(!closed){$('#msg').innerHTML='<div class="err">Finish the shape first by tapping the first dot.</div>';return}
-  $('#msg').innerHTML='';
+  if(!closed){if(pts.length<3){$('#msg').innerHTML='<div class="err">Tap at least 3 corners of the grass first.</div>';return}$('#msg').innerHTML='';closed=true;draw();return}
   const sph=google.maps.geometry.spherical;
-  saved.unshift({addr:$('#addr').value.trim()||'Unnamed',sqft:Math.round(sph.computeArea(pts)*SQM_TO_SQFT),ft:Math.round(sph.computeLength(pts.concat([pts[0]]))*M_TO_FT),when:new Date().toLocaleDateString()});
-  saved=saved.slice(0,30);store.set('pc-areas',JSON.stringify(saved));renderSaved();clearPts();
+  const rec={addr:$('#addr').value.trim()||'Unnamed',sqft:Math.round(sph.computeArea(pts)*SQM_TO_SQFT),ft:Math.round(sph.computeLength(pts.concat([pts[0]]))*M_TO_FT),when:new Date().toLocaleDateString()};
+  saved.unshift(rec);saved=saved.slice(0,30);store.set('pc-areas',JSON.stringify(saved));renderSaved();clearPts();
+  $('#msg').innerHTML='<div class="done"><div>Saved. Type these into the customer\'s Measure screen in Prime Cut:</div><b id="dnum"></b><a class="btn go" href="'+$('#back').href+'">&#8249; Back to Prime Cut</a></div>';
+  $('#dnum').textContent=rec.sqft.toLocaleString()+' sq ft · '+rec.ft.toLocaleString()+' ft around';
 };
 function renderSaved(){const box=$('#areas');box.textContent='';
   saved.forEach(s=>{const d=document.createElement('div');d.className='area';const a=document.createElement('span');a.textContent=s.addr;const b=document.createElement('b');b.textContent=s.sqft.toLocaleString()+' sq ft · '+s.ft.toLocaleString()+' ft';d.append(a,b);box.append(d)})}
