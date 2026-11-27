@@ -237,12 +237,12 @@ function seed(){
    {who:'us',ch:'Text',t:'Yesterday 5:20 pm',text:'Perfect, thank you Jen!'}],
   unread:0,offered:[],
   estimates:[{id:1042,cust:'k1',title:'Front bed planting',status:'approved',lines:{p12:5,p9:3,p16:10,p15:10,m1:4,m2:60,m3:6}},
-   {id:1043,cust:'k1',title:'Backyard privacy screen',status:'sent',sentAgo:'4 days ago',lines:{p7:8,m1:3,m3:5}}],
+   {id:1043,cust:'k1',title:'Backyard privacy screen',status:'sent',sentAgo:'4 days ago',date:new Date(Date.now()-4*864e5).toISOString(),lines:{p7:8,m1:3,m3:5}}],
   crews:[{id:'c1',name:'Crew 1',lead:'Jake',color:'#4ABC39'}],
   people:[{id:'p1',name:'Jake Turner',crew:'c1',inAt:null,me:true}],
   week:[505,530,470],problems:[]};
 }
-let S;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}if(!S)S=seed();S.photos=S.photos||[];{const h=S.customers.find(c=>c.id==='k1');if(h&&!h.history)h.history=HIST()}
+let S;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}if(!S)S=seed();S.photos=S.photos||[];S.estimates.forEach(e=>{if(!e.date&&e.status==='sent'){const m=/(\d+) days? ago/.exec(e.sentAgo||'');e.date=new Date(Date.now()-(m?+m[1]:0)*864e5).toISOString()}});{const h=S.customers.find(c=>c.id==='k1');if(h&&!h.history)h.history=HIST()}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const UI={pts:[],closed:false,mcust:null,mback:null,pall:false,pq:'',ptype:'All',draft:null,tab:null,job:null,day:0,q:'',locating:false};let PHOTO={};
 const cust=id=>S.customers.find(c=>c.id===id), crew=id=>S.crews.find(c=>c.id===id), job=id=>S.jobs.find(j=>j.id===id);
@@ -640,6 +640,7 @@ function estSheet(id){const e=S.estimates.find(x=>x.id==id),c=cust(e.cust);
  <div class="card">${Object.entries(e.lines).map(([pid,q])=>{const pl=plant(pid);return `<div class="item" style="cursor:default"><div class="grow"><div class="t" style="white-space:normal">${esc(pl.name)}</div><div class="d">${q.toLocaleString()} × ${pm(priceOf(pid))} ${esc(pl.size)}</div><div class="d" style="white-space:normal;color:var(--ink)">${esc(descOf(pid))}</div></div><b class="num">${money(priceOf(pid)*q)}</b>${e.photos&&e.photos[pid]&&S.photos.find(x=>x.id===e.photos[pid])?`<button data-a="photoview" data-id="${e.photos[pid]}" style="border:0;padding:0;background:none;margin-left:8px"><img src="${S.photos.find(x=>x.id===e.photos[pid]).src}" alt="Line photo" style="width:40px;height:40px;border-radius:8px;object-fit:cover"></button>`:''}</div>`}).join('')}</div>
  <div class="total"><span>Total</span><span class="num">${money(estTotal(e))}</span></div>
  ${e.status==='sent'?`<button class="btn full big go" data-a="approve" data-id="${e.id}">Customer said yes</button><button class="btn full" data-a="lose" data-id="${e.id}">Customer said no</button>`:`<div class="sub sm">${e.status==='approved'?'Approved and on the schedule.':'Marked lost.'}</div>`}
+ ${fuTimeline(e)}
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button class="btn dark" data-a="pdfview" data-id="${e.id}">${ic('doc',18)} View PDF</button><button class="btn" data-a="pdfsave" data-id="${e.id}">Download PDF</button></div>
  <button class="btn full" data-a="custsheet" data-id="${c.id}">Open ${esc(c.name)}</button><button class="btn full" data-a="close">Close</button></div>`)}
 function yardLine(c){return c.lawnSqft?`<div class="item" style="cursor:default"><div class="ico green">${ic('pin',20)}</div><div class="grow"><div class="t">${c.lawnSqft.toLocaleString()} sq ft lawn</div><div class="d">${c.perimFt.toLocaleString()} ft around${c.lotSqft?` · lot ${c.lotSqft.toLocaleString()} sq ft`:''}${c.snowSqft?` · drive and walks ${c.snowSqft.toLocaleString()} sq ft`:''}</div></div><button class="btn sm" data-a="measure" data-id="${c.id}">Redo</button></div>`:`<div class="item" style="cursor:default"><div class="ico blue">${ic('pin',20)}</div><div class="grow"><div class="t">Yard not measured yet</div><div class="d">Trace it from the aerial view</div></div><button class="btn sm dark" data-a="measure" data-id="${c.id}">Measure</button></div>`}
@@ -752,15 +753,45 @@ const AUTOS=[
  ['arrive','Crew arrived',"When the crew taps Start job",(c,j)=>`Hi ${c.first}, Prime Cut is at ${c.address.split(',')[0]} now for your ${j.service.toLowerCase()}.`],
  ['done','Job done, with photo',"When the crew taps Job complete",(c,j)=>`All done, ${c.first}! Your ${j.service.toLowerCase()} is finished. Here's a photo of the work. Thank you for choosing Prime Cut!`],
  ['review','Review request',"The next morning at 10 am",(c)=>`Hi ${c.first}, how did we do? A quick Google review helps our small business a lot: (review link)`],
- ['estimate','Estimate follow-up',"3 days after an estimate with no answer",(c)=>`Hi ${c.first}, just checking in on the landscape estimate we sent. Happy to answer any questions or adjust it.`],
+ ['estimate','Estimate follow-ups',"Text and email 1, 3, 7, 14 and 30 days after an estimate, until they answer",(c)=>FU[0].text(c,{title:'backyard privacy screen',id:1043,lines:{}})],
  ['birthday','Happy birthday',"On their birthday at 9 am",(c)=>`Happy birthday, ${c.first}! Everyone at Prime Cut hopes you have a great day.`],
  ['seasonal','Seasonal reminder',"Early March and early September",(c)=>`Hi ${c.first}, spring is coming! Want us to put you on the schedule for aeration and overseeding?`],
 ];
+const FU=[
+ {day:1,text:(c,e)=>`Hi ${c.first}, it's Hunter with Prime Cut. Just wanted to make sure the estimate for your ${lc(e.title)} came through okay. Any questions at all, text me right here.`,
+  subj:(c,e)=>`Thank you for considering Prime Cut`,
+  mail:(c,e)=>`Hi ${c.first},\n\nThank you for giving us the chance to quote your ${lc(e.title)}. We really appreciate it. Your estimate #${e.id} for ${money(estTotal(e))} is attached as a PDF, and you can approve it with one tap from the link.\n\nIf anything is unclear, just reply to this email or call us. We're happy to walk through it with you.\n\nThanks again,\nHunter\nPrime Cut Lawn & Landscaping`},
+ {day:3,text:(c,e)=>`Hey ${c.first}, Hunter again. Have you had a chance to look over the ${lc(e.title)} estimate? Happy to swing by and walk the yard with you, or tweak anything.`,
+  subj:(c,e)=>`A few thoughts on your ${lc(e.title)}`,
+  mail:(c,e)=>`Hi ${c.first},\n\nI've been thinking about your ${lc(e.title)} and wanted to say thanks again for reaching out to us. If you'd like to change the plants, the size of the project or the budget, I can adjust the estimate quickly. I'm also glad to meet you at the property and talk through ideas.\n\nYour estimate #${e.id} is attached for easy reference.\n\nAppreciate you,\nHunter\nPrime Cut Lawn & Landscaping`},
+ {day:7,text:(c,e)=>`Hi ${c.first}! Our schedule is starting to fill up, so I wanted to check in on your ${lc(e.title)}. Want me to hold a spot for you?`,
+  subj:(c,e)=>`Saving you a spot on our schedule`,
+  mail:(c,e)=>`Hi ${c.first},\n\nOur crew calendar is filling up, and I'd love to make sure we have room for your ${lc(e.title)}. If you'd like to move forward, just approve estimate #${e.id} from the link and we'll get you on the schedule right away.\n\nThank you for considering a local, family-run business. It means a lot to us.\n\nHunter\nPrime Cut Lawn & Landscaping`},
+ {day:14,text:(c,e)=>`Hi ${c.first}, hope you're doing well. Still thinking about the ${lc(e.title)}? No pressure at all. If timing or budget is the holdup, I'm glad to work something out.`,
+  subj:(c,e)=>`Still here whenever you're ready`,
+  mail:(c,e)=>`Hi ${c.first},\n\nJust a friendly note that your estimate #${e.id} for the ${lc(e.title)} is still here whenever you're ready. If the timing isn't right or you'd like to do the project in stages, we can absolutely make that work.\n\nThanks for thinking of Prime Cut.\n\nHunter\nPrime Cut Lawn & Landscaping`},
+ {day:30,text:(c,e)=>`Hi ${c.first}, Hunter from Prime Cut. Last check-in on the ${lc(e.title)}. If now isn't the right time, no worries at all. Just reply whenever you're ready and we'll take care of you.`,
+  subj:(c,e)=>`Thank you, ${c.first}`,
+  mail:(c,e)=>`Hi ${c.first},\n\nI wanted to say thank you one more time for considering us for your ${lc(e.title)}. I won't keep filling up your inbox. Whenever you're ready, this season or next, just reply here and I'll refresh your estimate and get you on the schedule.\n\nWishing you all the best,\nHunter\nPrime Cut Lawn & Landscaping`}];
+const lc=t=>String(t||'project').trim().replace(/^./,ch=>ch.toLowerCase());
+const DAY=864e5;
+function fuDue(e){if(e.status!=='sent'||e.fuOff||!e.date)return [];const age=(Date.now()-new Date(e.date).getTime())/DAY;return FU.filter(f=>f.day<=age&&!(e.fu||{})[f.day])}
+function runFollowups(){if(!S.autos.estimate)return false;let n=0;
+ S.estimates.forEach(e=>{const c=cust(e.cust);if(!c||c.archived)return;fuDue(e).forEach(f=>{e.fu=e.fu||{};e.fu[f.day]=new Date(new Date(e.date).getTime()+f.day*DAY).toISOString();
+  const when=new Date(e.fu[f.day]).toLocaleDateString('en-US',{month:'short',day:'numeric'})+', 10:00 am';
+  S.msgs.push({who:'auto',ch:'Text',cust:c.id,t:when,kind:`Estimate follow-up, day ${f.day}`,text:f.text(c,e)});
+  if(c.email)S.msgs.push({who:'auto',ch:'Email',cust:c.id,t:when,kind:`Estimate follow-up, day ${f.day}`,text:`Subject: ${f.subj(c,e)}\n\n${f.mail(c,e)}`});n++})});
+ if(n){S.unread+=n;save()}return n>0}
+function fuTimeline(e){const base=e.date?new Date(e.date).getTime():Date.now(),stop=e.status!=='sent'||e.fuOff;
+ return `<div class="sec" style="margin-top:4px"><h2>Follow-ups</h2>${e.status==='sent'?`<button class="sw" role="switch" aria-label="Automatic follow-ups" aria-checked="${!e.fuOff}" data-a="futoggle" data-id="${e.id}"></button>`:''}</div>
+ <div class="card">${FU.map(f=>{const sent=(e.fu||{})[f.day],d=new Date(base+f.day*DAY).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  return `<button class="item" data-a="fuview" data-id="${e.id}" data-k="${f.day}"><div class="ico ${sent?'green':stop?'':'blue'}">${ic(sent?'check':'clock',18)}</div><div class="grow"><div class="t">Day ${f.day}: text and email</div><div class="d">${sent?'Sent '+d:stop?(e.status==='sent'?'Off':'Stopped, customer answered'):'Sends '+d+', 10:00 am'}</div></div><span class="chev">${ic('chev',16)}</span></button>`}).join('')}</div>
+ <div class="sub sm">They stop on their own when you tap "Customer said yes" or "Customer said no".</div>`}
 const tpl=(k,c,j)=>AUTOS.find(a=>a[0]===k)[3](c,j||{service:'service',address:c.address});
 function autoSend(k,j){if(!S.autos[k])return;const c=cust(j.cust);S.msgs.push({who:'auto',ch:'Text',t:'Today '+fmtT(now()),kind:AUTOS.find(a=>a[0]===k)[1],text:tpl(k,c,j)});S.unread++}
 function upcoming(){const c=cust('k1'),out=[];
  if(S.autos.review&&S.jobs.some(j=>j.status==='done'&&j.day===0))out.push(['Review request','Tomorrow 10:00 am']);
- if(S.autos.estimate)out.push(['Estimate follow-up','Sunday 9:00 am']);
+ if(S.autos.estimate)S.estimates.filter(e=>e.status==='sent'&&!e.fuOff&&e.date).forEach(e=>{const nx=FU.find(f=>!(e.fu||{})[f.day]);if(nx)out.push([`Day ${nx.day} estimate follow-up (#${e.id})`,new Date(new Date(e.date).getTime()+nx.day*DAY).toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'})+', 10:00 am'])});
  if(S.autos.birthday&&c.bday)out.push(['Happy birthday',new Date(c.bday).toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'})+', 9:00 am']);
  if(S.autos.seasonal)out.push(['Seasonal reminder','March 2, 9:00 am']);
  return out}
@@ -775,7 +806,7 @@ function msgs(){const c=cust('k1'),last=S.msgs[S.msgs.length-1];
 function thread(){const c=cust('k1');
  return `<div class="stack"><button class="back" data-a="tab" data-t="msgs">${ic('back',18)} Messages</button>
  <div><h1>${esc(c.name)}</h1><div class="sub sm">${esc(c.phone)} · ${esc(c.email)}</div></div>
- <div class="thread">${S.msgs.map(m=>`<div class="bub ${m.who}">${esc(m.text)}</div><div class="meta ${m.who==='them'?'':'r'}">${m.kind?'Automatic · '+esc(m.kind)+' · ':''}${m.ch} · ${esc(m.t)}</div>`).join('')}</div>
+ <div class="thread">${S.msgs.filter(m=>!m.cust||m.cust==='k1').map(m=>`<div class="bub ${m.who}" style="white-space:pre-wrap">${esc(m.text)}</div><div class="meta ${m.who==='them'?'':'r'}">${m.kind?'Automatic · '+esc(m.kind)+' · ':''}${m.ch} · ${esc(m.t)}</div>`).join('')}</div>
  <form id="sendform" class="composer"><input id="msgin" placeholder="Text ${esc(c.first)}…" autocomplete="off" aria-label="Message"><button class="btn go" type="submit" aria-label="Send" style="width:56px;padding:0">${ic('send',20)}</button></form></div>`}
 
 /* ---------------- shell ---------------- */
@@ -839,8 +870,10 @@ const A={
  lose:d=>{const e=S.estimates.find(x=>x.id==d.id);close();commit(`#${e.id} marked lost`,()=>{e.status='lost'})},
  offer:d=>{const x=callList().find(y=>y.k===d.k);commit('Offer texted. Replies land in Messages.',()=>{S.offered.push(x.k);S.msgs.push({who:'us',ch:'Text',t:'Today '+fmtT(now()),text:x.msg})})},
  openthread:()=>{UI.tab='thread';render();scrollTo(0,document.body.scrollHeight)},
+ futoggle:d=>{const e=S.estimates.find(x=>x.id==d.id);e.fuOff=!e.fuOff;save();estSheet(e.id);toast(e.fuOff?'Follow-ups off for this estimate':'Follow-ups back on')},
+ fuview:d=>{const e=S.estimates.find(x=>x.id==d.id),c=cust(e.cust),f=FU.find(x=>x.day==d.k);sheet(`<div class="stack"><h2>Day ${f.day} follow-up</h2><div class="sub sm">Text</div><div class="thread"><div class="bub auto">${esc(f.text(c,e))}</div></div><div class="sub sm">Email · ${esc(f.subj(c,e))}</div><div class="card" style="white-space:pre-wrap;font-size:.92rem;line-height:1.45">${esc(f.mail(c,e))}</div><button class="btn full" data-a="estsheet" data-id="${e.id}">Back to estimate</button></div>`)},
  toggleauto:d=>{S.autos[d.k]=!S.autos[d.k];save();render()},
- previewauto:d=>{const a=AUTOS.find(x=>x[0]===d.k);sheet(`<div class="stack"><h2>${a[1]}</h2><div class="sub sm">${a[2]}</div><div class="thread"><div class="bub auto">${esc(tpl(d.k,cust('k1'),{service:'Leaf removal',address:cust('k1').address}))}</div></div><div class="sub sm">Names, addresses and services fill in on their own for each customer.</div><button class="btn full" data-a="close">Close</button></div>`)},
+ previewauto:d=>{if(d.k==='estimate'){const e=S.estimates.find(x=>x.status==='sent')||S.estimates[0];return estSheet(e.id)}const a=AUTOS.find(x=>x[0]===d.k);sheet(`<div class="stack"><h2>${a[1]}</h2><div class="sub sm">${a[2]}</div><div class="thread"><div class="bub auto">${esc(tpl(d.k,cust('k1'),{service:'Leaf removal',address:cust('k1').address}))}</div></div><div class="sub sm">Names, addresses and services fill in on their own for each customer.</div><button class="btn full" data-a="close">Close</button></div>`)},
  lang:()=>{S.lang=S.lang==='es'?'en':'es';save();render()},
  tab:d=>{UI.tab=d.t;render();scrollTo(0,0)},
  scrollTo:d=>document.getElementById(d.id)?.scrollIntoView({behavior:'smooth'}),
@@ -897,8 +930,9 @@ document.addEventListener('input',e=>{if(e.target.id==='pq'){UI.pq=e.target.valu
 addEventListener('hashchange',readHashPCM);
 document.addEventListener('click',e=>{if(e.target.closest('a[data-a="mopen"]')){S.pendingMeasure={cust:UI.mcust,back:UI.mback,at:Date.now()};save()}},true);
 addEventListener('message',e=>{const t=typeof e.data==='string'?e.data:'';if(t.startsWith('PRIMECUT-MEASURE'))applyPCM(t,UI.mcust)});
+setInterval(()=>{if(runFollowups()&&$('#sheetwrap').hidden)render()},60000);
 setInterval(()=>{if($('#sheetwrap').hidden&&!['cust','thread','est','measure','sales','profile'].includes(UI.tab))render()},60000);
-render();readHashPCM();
+runFollowups();render();readHashPCM();
 {const pm=S.pendingMeasure;if(pm&&UI.tab!=='profile'&&Date.now()-pm.at<3600e3&&cust(pm.cust)&&!cust(pm.cust).archived){UI.mcust=pm.cust;UI.mback=pm.back||'cust';UI.tab='measure';render();scrollTo(0,0);toast('Welcome back. Tap Paste measurement to bring in the numbers.')}else if(pm){delete S.pendingMeasure;save()}}
 })();
 </script>
