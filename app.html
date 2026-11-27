@@ -239,7 +239,7 @@ function seed(){
   estimates:[{id:1042,cust:'k1',title:'Front bed planting',status:'approved',lines:{p12:5,p9:3,p16:10,p15:10,m1:4,m2:60,m3:6}},
    {id:1043,cust:'k1',title:'Backyard privacy screen',status:'sent',sentAgo:'4 days ago',date:new Date(Date.now()-4*864e5).toISOString(),lines:{p7:8,m1:3,m3:5}}],
   crews:[{id:'c1',name:'Crew 1',lead:'Jake',color:'#4ABC39'}],
-  people:[{id:'p1',name:'Jake Turner',crew:'c1',inAt:null,me:true,phone:'(859) 555-0147',email:'jake@example.com',role:'Crew lead',pay:22,payType:'hour',start:'2024-03-18',emName:'Maria Turner',emPhone:'(859) 555-0190',docs:{w4:'2024-03-18',i9:'2024-03-18',k4:'2024-03-18',dd:'2024-03-20',license:'2024-03-18'}}],
+  people:[{id:'p1',name:'Jake Turner',crew:'c1',inAt:null,me:true,phone:'(859) 555-0147',email:'jake@example.com',role:'Crew lead',pay:22,payType:'hour',start:'2024-03-18',emName:'Maria Turner',emPhone:'(859) 555-0190',docs:{w4:'2024-03-18',i9:'2024-03-18',k4:'2024-03-18',dd:'2024-03-20',license:'2024-03-18',handbook:'2024-03-18'}}],
   week:[505,530,470],problems:[]};
 }
 let S;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}if(!S)S=seed();S.photos=S.photos||[];S.estimates.forEach(e=>{if(!e.date&&e.status==='sent'){const m=/(\d+) days? ago/.exec(e.sentAgo||'');e.date=new Date(Date.now()-(m?+m[1]:0)*864e5).toISOString()}});{const h=S.customers.find(c=>c.id==='k1');if(h&&!h.history)h.history=HIST()}
@@ -300,10 +300,37 @@ function crewSheet(id){const c=crew(id),s=crewInfo(id);
  <button class="btn full" data-a="close">Close</button></div>`)}
 const pill=j=>({done:'<span class="chip c-green">Done</span>',now:'<span class="chip c-blue">Working</span>',skipped:'<span class="chip c-red">Skipped</span>',todo:'<span class="chip c-gray">'+fmtT(j.start)+'</span>'}[j.status]);
 
-const DOCS=[['w4','Federal W-4','Tax withholding'],['k4','Kentucky K-4','State tax withholding'],['i9','I-9 and ID','Proof they can work in the US'],['dd','Direct deposit form','Bank details for payroll'],['license',"Driver's license",'Needed to drive company trucks'],['handbook','Handbook and safety sign-off','Rules, equipment safety, PPE']];
+const DOCS=[
+ ['w4','Federal W-4','Tax withholding','official','https://www.irs.gov/pub/irs-pdf/fw4.pdf','W-4 federal','Retención de impuestos federales'],
+ ['k4','Kentucky K-4','State tax withholding','official','https://www.google.com/search?q=Kentucky+K-4+withholding+certificate+site%3Arevenue.ky.gov','K-4 de Kentucky','Retención de impuestos del estado'],
+ ['i9','I-9 and ID','Proof they can work in the US','official','https://www.uscis.gov/i-9','I-9 e identificación','Prueba de que puede trabajar en EE. UU.'],
+ ['dd','Direct deposit form','Where to send their pay','form','','Depósito directo','Dónde enviar su pago'],
+ ['license',"Driving and vehicle use","License check and company truck rules",'form','','Manejo y uso de vehículos','Licencia y reglas de la camioneta'],
+ ['handbook','Handbook and safety sign-off','Rules, equipment safety, PPE','form','','Manual y seguridad','Reglas, seguridad y equipo de protección']];
+const FORMS={
+ dd:{title:['Direct deposit authorization','Autorización de depósito directo'],
+  fields:[['bank','Bank name','Nombre del banco'],['type','Account type (checking or savings)','Tipo de cuenta (cheques o ahorros)'],['routing','Routing number (9 digits)','Número de ruta (9 dígitos)','sens'],['acct','Account number','Número de cuenta','sens']],
+  text:['I authorize Prime Cut Lawn & Landscaping to deposit my pay into the account above, and to correct any deposit made in error. This stays in effect until I give written notice to change or cancel it.','Autorizo a Prime Cut Lawn & Landscaping a depositar mi pago en la cuenta de arriba y a corregir cualquier depósito hecho por error. Esto sigue vigente hasta que yo avise por escrito para cambiarlo o cancelarlo.']},
+ license:{title:['Driving and vehicle use','Manejo y uso de vehículos'],
+  fields:[['dl','Driver\'s license number','Número de licencia de conducir','sens'],['dlstate','State','Estado'],['dlexp','Expiration date','Fecha de vencimiento']],
+  rules:[["I have a valid driver's license and will tell my manager right away if it is suspended or expires.","Tengo una licencia de conducir válida y avisaré a mi gerente de inmediato si la suspenden o se vence."],
+   ['I will wear a seat belt, follow traffic laws and never use a phone while driving.','Usaré el cinturón de seguridad, seguiré las leyes de tránsito y nunca usaré el teléfono mientras manejo.'],
+   ['Company trucks and trailers are for work only. No personal trips or passengers who are not on the crew.','Las camionetas y remolques de la compañía son solo para el trabajo. Nada de viajes personales ni pasajeros que no sean del equipo.'],
+   ['I will check tires, lights, hitch and straps before towing, and report any damage or accident the same day.','Revisaré llantas, luces, enganche y correas antes de remolcar, y reportaré cualquier daño o accidente el mismo día.'],
+   ['Prime Cut may check my driving record with my permission.','Prime Cut puede revisar mi historial de manejo con mi permiso.']]},
+ handbook:{title:['Handbook and safety sign-off','Manual y seguridad'],
+  rules:[['I will clock in and out in the app, and only when I am working.','Marcaré entrada y salida en la app, y solo cuando esté trabajando.'],
+   ['I will wear safety glasses, hearing protection, gloves and closed-toe boots when running equipment.','Usaré lentes de seguridad, protección para los oídos, guantes y botas cerradas al usar el equipo.'],
+   ['I will keep guards on mowers and trimmers, shut off engines before clearing jams, and never point a blower or trimmer at people, cars or windows.','Mantendré las protecciones en cortadoras y orilladoras, apagaré el motor antes de destapar, y nunca apuntaré la sopladora u orilladora a personas, carros o ventanas.'],
+   ['I will drink water, take breaks in the heat, and tell my crew lead if I feel sick or dizzy.','Tomaré agua, descansaré cuando haga calor y avisaré a mi líder si me siento mal o mareado.'],
+   ["I will treat customers' property with care, close gates, and report any damage right away.",'Cuidaré la propiedad de los clientes, cerraré los portones y reportaré cualquier daño de inmediato.'],
+   ['No alcohol or drugs at work or in company vehicles. Harassment of any kind is not allowed.','Nada de alcohol ni drogas en el trabajo ni en los vehículos de la compañía. No se permite ningún tipo de acoso.'],
+   ['I have read the Prime Cut employee handbook and will ask my manager if I have questions.','Leí el manual de empleados de Prime Cut y le preguntaré a mi gerente si tengo dudas.']]}};
+const docDone=(p,k)=>!!((p.docs||{})[k]||(p.docBypass||{})[k]);
+const papersLeft=p=>DOCS.filter(([k])=>!docDone(p,k));
 const ROLES=['Crew member','Crew lead','Office'];
 const person=id=>S.people.find(p=>p.id===id);
-const docCount=p=>DOCS.filter(([k])=>(p.docs||{})[k]).length;
+const docCount=p=>DOCS.filter(([k])=>docDone(p,k)).length;
 function team(){const act=S.people.filter(p=>!p.gone),old=S.people.filter(p=>p.gone);
  const row=p=>`<button class="item" data-a="person" data-id="${p.id}"><div class="av" style="background:${p.gone?'#9AA59D':(S.crews.find(c=>c.id===p.crew)||{}).color||'#4ABC39'}">${esc(p.name.split(' ').map(w=>w[0]).join('').slice(0,2))}</div><div class="grow"><div class="t">${esc(p.name)}</div><div class="d">${p.gone?'Last day '+fmtD(p.endDate):esc(p.role||'Crew member')+(p.crew?' · '+esc(crew(p.crew).name):'')}</div></div>${p.gone?'':`<span class="chip ${docCount(p)===DOCS.length?'c-green':'c-amber'}">${docCount(p)}/${DOCS.length} papers</span>`}<span class="chev">${ic('chev',18)}</span></button>`;
  return `<div class="stack"><button class="back" data-a="tab" data-t="home">${ic('back',18)} Home</button>
@@ -319,10 +346,40 @@ function personView(){const p=person(UI.person);if(!p){UI.tab='team';return team
  <div style="display:flex;gap:12px;align-items:flex-start"><div class="grow"><h1>${esc(p.name)}</h1><div class="sub">${p.gone?'Past employee · last day '+fmtD(p.endDate):esc(p.role||'Crew member')+(p.crew?' · '+esc(crew(p.crew).name):'')}</div></div><button class="btn sm" data-a="hire" data-id="${p.id}">Edit</button></div>
  <div class="card">${f('Phone',esc(p.phone||''))}${f('Email',esc(p.email||''))}${f('Pay',p.pay?`${money(p.pay)} ${p.payType==='year'?'per year':'per hour'}`:'')}${f('Start date',p.start?fmtD(p.start):'')}${f('Emergency contact',p.emName?esc(p.emName)+(p.emPhone?' · '+esc(p.emPhone):''):'')}</div>
  <div class="sec"><h2>Hiring papers</h2><span class="sub sm">${docCount(p)}/${DOCS.length} on file</span></div>
- <div class="card">${DOCS.map(([k,l,d])=>{const on=(p.docs||{})[k];return `<label class="item" style="cursor:pointer;position:relative"><div class="ico ${on?'green':'amber'}">${ic(on?'check':'doc',18)}</div><div class="grow"><div class="t">${l}</div><div class="d">${on?'On file · '+fmtD(on)+((p.docNames||{})[k]?' · '+esc(p.docNames[k]):''):d}</div></div><span class="link">${on?'Replace':'Add'}</span><input type="file" accept="image/*,.pdf" data-c="pdoc" data-id="${p.id}" data-k="${k}" style="position:absolute;inset:0;opacity:0" aria-label="Add ${l}"></label>`}).join('')}</div>
+ <div class="card">${DOCS.map(([k,l,d])=>{const on=(p.docs||{})[k],by=(p.docBypass||{})[k];return `<button class="item" data-a="docopen" data-id="${p.id}" data-k="${k}"><div class="ico ${on?'green':by?'blue':'amber'}">${ic(on?'check':'doc',18)}</div><div class="grow"><div class="t">${l}</div><div class="d" style="white-space:normal">${on?'Done · '+fmtD(on):by?'Skipped by '+esc(by.by)+' · '+esc(by.reason):'Not done · '+d}</div></div><span class="chev">${ic('chev',16)}</span></button>`}).join('')}</div>
+ ${papersLeft(p).length&&!p.gone?`<div class="sub sm">${esc(p.name.split(' ')[0])} can't clock in until every paper is done or skipped by a manager.</div>`:''}
  ${p.gone?`<div class="card">${f('Reason',esc(p.endReason||''))}${f('Notes',esc(p.endNotes||''))}${f('Offboarding',(p.offboard||[]).map(esc).join(', '))}</div><button class="btn full" data-a="rehire" data-id="${p.id}">Rehire ${esc(p.name.split(' ')[0])}</button>`
  :`<button class="btn full redb" data-a="letgo" data-id="${p.id}">Let ${esc(p.name.split(' ')[0])} go</button>`}
  </div>`}
+function docSheet(pid,k,crewSide){const p=person(pid),D=DOCS.find(x=>x[0]===k),on=(p.docs||{})[k],by=(p.docBypass||{})[k],es=crewSide&&isES(),T=(en,sp)=>es?sp:en;
+ const back=crewSide?`<button class="btn full" data-a="close">${T('Close','Cerrar')}</button>`:`<button class="btn full" data-a="person" data-id="${pid}">Back</button>`;
+ if(D[3]==='official'){sheet(`<div class="stack"><h2>${es?D[5]:D[1]}</h2><div class="sub">${T('This is an official government form. Open it, fill it out, then take a photo of it or upload the PDF here.','Este es un formulario oficial del gobierno. Ábralo, llénelo y luego tome una foto o suba el PDF aquí.')}${k==='i9'?T(' Also bring your ID documents to the office so a manager can check them in person.',' También traiga sus documentos de identidad a la oficina para que un gerente los revise en persona.'):''}</div>
+  <a class="btn full big dark" style="display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none" target="_blank" rel="noopener" href="${D[4]}">${ic('doc',18)} ${T('Open the official form','Abrir el formulario oficial')}</a>
+  <label class="btn full big go" style="display:flex;align-items:center;justify-content:center;gap:8px;position:relative;overflow:hidden">${ic('cam',18)} ${on?T('Replace the completed form','Reemplazar el formulario'):T('Upload the completed form','Subir el formulario completo')}<input type="file" accept="image/*,.pdf" data-c="pdoc" data-id="${pid}" data-k="${k}" style="position:absolute;inset:0;opacity:0"></label>
+  ${on?`<div class="sub sm">${T('On file','Guardado')} · ${fmtD(on)}${(p.docNames||{})[k]?' · '+esc(p.docNames[k]):''}</div>`:''}
+  ${!crewSide?bypassBlock(p,k,on,by):''}${back}</div>`);return}
+ const F=FORMS[k],sg=(p.sign||{})[k];
+ sheet(`<form id="docform" class="stack" novalidate data-id="${pid}" data-k="${k}" data-crew="${crewSide?1:''}"><h2>${es?F.title[1]:F.title[0]}</h2>
+  ${on?`<div class="card"><div class="item" style="cursor:default"><div class="ico green">${ic('check',18)}</div><div class="grow"><div class="t">${T('Signed by','Firmado por')} ${esc(sg?sg.name:p.name)}</div><div class="d">${fmtD(on)}</div></div></div></div>`:''}
+  ${(F.fields||[]).map(([id,en,sp,sens])=>`<div class="field"><label for="df-${id}">${es?sp:en}</label><input id="df-${id}" ${sens?'inputmode="numeric" autocomplete="off"':''} value="${sens?'':esc(((p.form||{})[k]||{})[id]||'')}" placeholder="${sens&&on?T('Saved','Guardado'):''}"></div>`).join('')}
+  ${F.text?`<div class="card" style="font-size:.92rem;line-height:1.5">${es?F.text[1]:F.text[0]}</div>`:''}
+  ${F.rules?`<div class="card">${F.rules.map((r,i)=>`<label class="check" style="cursor:pointer;align-items:flex-start"><input type="checkbox" class="df-rule" ${on?'checked':''} style="width:22px;height:22px;flex:none;accent-color:#29853A;margin-top:2px"> <span>${es?r[1]:r[0]}</span></label>`).join('')}</div>`:''}
+  <div class="field"><label for="df-sign">${T('Type your full name to sign','Escriba su nombre completo para firmar')}</label><input id="df-sign" value="${esc(sg?sg.name:'')}" autocomplete="off" style="font-family:'Brush Script MT',cursive;font-size:1.3rem"></div>
+  <div id="df-err"></div>
+  <button class="btn full big go" type="submit">${on?T('Sign again','Firmar de nuevo'):T('Sign and finish','Firmar y terminar')}</button>
+  ${!crewSide?bypassBlock(p,k,on,by):''}${back.replace('class="btn full"','class="btn full" type="button"')}</form>`)}
+function bypassBlock(p,k,on,by){if(on)return '';return by?`<div class="card"><div class="item" style="cursor:default"><div class="ico blue">${ic('check',18)}</div><div class="grow"><div class="t">Skipped by ${esc(by.by)}</div><div class="d" style="white-space:normal">${esc(by.reason)} · ${fmtD(by.at)}</div></div><button class="btn sm" type="button" data-a="unbypass" data-id="${p.id}" data-k="${k}">Undo</button></div></div>`:`<button class="btn full" type="button" data-a="bypass" data-id="${p.id}" data-k="${k}">Manager: skip this paper</button>`}
+function saveDoc(){const f=$('#docform'),pid=f.dataset.id,k=f.dataset.k,crewSide=!!f.dataset.crew,p=person(pid),F=FORMS[k],es=crewSide&&isES();
+ const vals={};for(const [id,,,sens] of (F.fields||[])){const v=$('#df-'+id).value.trim();if(!v&&!((p.docs||{})[k]&&sens)){$('#df-err').innerHTML=`<div class="err">${es?'Llene todos los campos.':'Fill in every box.'}</div>`;return}if(!sens)vals[id]=v;else if(v)vals[id]='•••• '+v.slice(-4)}
+ if(F.rules&&[...document.querySelectorAll('.df-rule')].some(x=>!x.checked)){$('#df-err').innerHTML=`<div class="err">${es?'Marque cada regla para confirmar que la leyó.':'Check each rule to show you read it.'}</div>`;return}
+ if(k==='dd'&&vals.routing!==undefined&&!/^\d{9}$/.test($('#df-routing').value.trim())){$('#df-err').innerHTML=`<div class="err">${es?'El número de ruta tiene 9 dígitos.':'The routing number is 9 digits.'}</div>`;return}
+ const nm=$('#df-sign').value.trim();if(nm.split(/\s+/).length<2){$('#df-err').innerHTML=`<div class="err">${es?'Escriba su nombre y apellido.':'Type your first and last name.'}</div>`;return}
+ close();commit(es?'Firmado. ¡Gracias!':`${F.title[0]} signed`,()=>{p.docs=p.docs||{};p.form=p.form||{};p.sign=p.sign||{};p.docs[k]=new Date().toISOString();p.form[k]={...(p.form[k]||{}),...vals};p.sign[k]={name:nm,at:p.docs[k]};if(p.docBypass)delete p.docBypass[k]});
+ if(!crewSide){UI.person=pid;UI.tab='person';render()}}
+function bypassSheet(pid,k,err=''){const p=person(pid),D=DOCS.find(x=>x[0]===k);
+ sheet(`<form id="bypassform" class="stack" novalidate data-id="${pid}" data-k="${k}"><h2>Skip ${esc(D[1])}?</h2><div class="sub">${esc(p.name.split(' ')[0])} will be able to clock in without it. Your name, the reason and the date are saved on their record.</div>${err?`<div class="err">${err}</div>`:''}
+ <div class="field"><label for="bp-r">Reason</label><input id="bp-r" placeholder="Example: Paper copy on file in the office"></div>
+ <button class="btn full big dark" type="submit">Skip as Hunter (manager)</button><button class="btn full" type="button" data-a="docopen" data-id="${pid}" data-k="${k}">Cancel</button></form>`)}
 function hireForm(id,err=''){const p=id?person(id):{role:'Crew member',crew:S.crews[0].id,payType:'hour',start:new Date().toISOString().slice(0,10)};
  sheet(`<form id="hireform" class="stack" novalidate data-id="${id||''}"><h2>${id?'Edit '+esc(p.name):'Hire someone'}</h2>${err?`<div class="err">${err}</div>`:''}
  <div class="field"><label for="h-n">Full name</label><input id="h-n" value="${esc(p.name||'')}" autocomplete="off"></div>
@@ -485,7 +542,7 @@ function saveCust(){const v={name:$('#c-n').value.trim(),phone:$('#c-p').value.t
 
 /* ---------------- CREW ---------------- */
 function today(){
- const p=meP(),c=crew(p.crew),s=crewInfo(c.id),t=now();
+ const p=meP();if(papersLeft(p).length)return papersView(p);const c=crew(p.crew),s=crewInfo(c.id),t=now();
  let clock;
  if(UI.locating)clock=`<div class="clockcard"><div class="ico green">${ic('pin',20)}</div><div class="grow"><div class="t" style="font-weight:600">${tr('Checking your location…','Revisando su ubicación…')}</div><div class="sub sm">${tr("Making sure you're at the shop or a job",'Confirmando que está en el taller o en un trabajo')}</div></div></div>`;
  else if(p.inAt==null)clock=`<div class="stack" style="gap:10px"><div><div class="sub sm">${tr('Shift started 7:00 am','El turno empezó a las 7:00 am')}</div><div style="font-weight:700;color:var(--red)">${tr("You're not clocked in",'No ha marcado su entrada')}</div></div><button class="btn full big go" data-a="clockin">${tr('Clock in','Marcar entrada')}</button></div>`;
@@ -498,6 +555,10 @@ function today(){
  ${s.js.map((j,i)=>{const k=cust(j.cust);return `<button class="stop ${({done:'done',now:'now',skipped:'skip',todo:''})[j.status]}" data-a="openjob" data-id="${j.id}"><div class="n">${j.status==='done'?ic('check',20,3):j.status==='skipped'?ic('x',20):i+1}</div><div class="grow" style="flex:1;min-width:0"><div class="addr">${esc(k.address.split(',')[0])}</div><div class="sub sm">${esc(L(j.service))}${j.status==='now'?tr(' · working now',' · trabajando'):j.status==='skipped'?tr(' · skipped',' · saltada'):''}</div></div><span class="chev">${ic('chev',18)}</span></button>`}).join('')}
  </div>`;
 }
+function papersView(p){const left=papersLeft(p);
+ return `<div class="stack"><div><div class="sub sm">${tr('Welcome to Prime Cut','Bienvenido a Prime Cut')}</div><h1>${tr('Hi','Hola')}, ${esc(p.name.split(' ')[0])}</h1></div>
+ <div class="card"><div class="item" style="cursor:default"><div class="ico amber">${ic('doc',20)}</div><div class="grow"><div class="t" style="white-space:normal">${tr('Finish your hiring papers to start','Termine sus papeles de contratación para empezar')}</div><div class="d" style="white-space:normal">${tr(`${left.length} left. You can clock in when they're done.`,`Faltan ${left.length}. Podrá marcar entrada cuando termine.`)}</div></div></div></div>
+ <div class="card">${DOCS.map(([k,l,d,,,les,des])=>{const on=docDone(p,k);return `<button class="item" data-a="mydoc" data-k="${k}"><div class="ico ${on?'green':'amber'}">${ic(on?'check':'doc',18)}</div><div class="grow"><div class="t">${tr(l,les)}</div><div class="d">${on?tr('Done','Listo'):tr(d,des)}</div></div><span class="chev">${ic('chev',16)}</span></button>`}).join('')}</div></div>`}
 function jobView(){
  const j=job(UI.job),k=cust(j.cust),t=now();
  const need=[...CHECKS.filter(([id])=>!j.checks[id]).map(x=>x[1]),...(j.photo?[]:['After photo'])].map(L);
@@ -931,6 +992,8 @@ const A={
  pback:()=>{UI.tab=UI.pback||'cust';render();scrollTo(0,0)},
  profest:d=>{UI.draft={cust:d.id,title:'',lines:{}};UI.eback=d.id;UI.tab='est';render();scrollTo(0,0)},
  photoview:d=>photoView(d.id),
+ docopen:d=>docSheet(d.id,d.k,false), mydoc:d=>docSheet(meP().id,d.k,true), bypass:d=>bypassSheet(d.id,d.k),
+ unbypass:d=>{const p=person(d.id);commit('Skip removed',()=>{delete p.docBypass[d.k]});docSheet(d.id,d.k,false)},
  route:d=>{UI.rcrew=d.id;UI.tab='route';render();scrollTo(0,0)}, optroute:()=>optRoute(), useorder:()=>useOrder(),
  person:d=>{close();UI.person=d.id;UI.tab='person';render();scrollTo(0,0)},
  hire:d=>hireForm(d.id||null), letgo:d=>letGo(d.id),
@@ -1018,12 +1081,12 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
 document.addEventListener('submit',e=>{e.preventDefault();const f=e.target;
  if(f.id==='sendform'){const v=$('#msgin').value.trim();if(!v)return;S.msgs.push({who:'us',ch:'Text',t:'Today '+fmtT(now()),text:v});save();render();scrollTo(0,document.body.scrollHeight);$('#msgin').focus();return}
  if(f.id==='mform'){const sq=Math.round(+$('#m-sq').value),ft=Math.round(+$('#m-ft').value);if(!(sq>0)||!(ft>0)){$('#merr').innerHTML='<div class="err">Enter both numbers from the satellite tool.</div>';return}const c=cust(UI.mcust);UI.tab=UI.mback==='est'?'est':'cust';commit(`Saved ${sq.toLocaleString()} sq ft for ${c.name}`,()=>{delete S.pendingMeasure;c.lawnSqft=sq;c.perimFt=ft});if(UI.mback!=='est')custSheet(c.id);return}
- if(f.id==='jobform')saveJob();if(f.id==='custform')saveCust();if(f.id==='itemform')saveItem();if(f.id==='hireform')saveHire();if(f.id==='letgoform')saveLetGo();
+ if(f.id==='jobform')saveJob();if(f.id==='custform')saveCust();if(f.id==='itemform')saveItem();if(f.id==='hireform')saveHire();if(f.id==='docform')saveDoc();if(f.id==='bypassform'){const pid=f.dataset.id,k=f.dataset.k,r=$('#bp-r').value.trim();if(!r)return bypassSheet(pid,k,'Add a short reason.');const p=person(pid);close();commit('Paper skipped by manager',()=>{p.docBypass=p.docBypass||{};p.docBypass[k]={by:'Hunter',reason:r,at:new Date().toISOString()}});UI.person=pid;UI.tab='person';render()}if(f.id==='letgoform')saveLetGo();
  if(f.id==='probform'){const t=$('#pt').value.trim();if(!t){$('#perr').innerHTML=`<div class="err">${tr('Write a few words about what happened.','Escriba unas palabras sobre lo que pasó.')}</div>`;return}
   const kind=f.querySelector('.opt[aria-pressed="true"]').dataset.w,j=job(f.dataset.id);close();commit(tr('Sent. Hunter will see it right away.','Enviado. Hunter lo verá de inmediato.'),()=>S.problems.push({kind,text:t,where:cust(j.cust).address.split(',')[0]}))}});
 document.addEventListener('change',async e=>{const el=e.target,f=el.files?.[0];if(!f)return;
  if(el.dataset.c==='photo'){const j=job(el.dataset.id);try{PHOTO[j.id]=URL.createObjectURL(f)}catch(_){}j.photo=true;save();render();const crew=S.crews.find(c=>c.id===j.crew);await keepPhoto(f,{cust:j.cust,job:j.id,label:j.service+' · after photo',by:crew?crew.name:''})}
- if(el.dataset.c==='pdoc'){const p=person(el.dataset.id);p.docs=p.docs||{};p.docNames=p.docNames||{};p.docs[el.dataset.k]=new Date().toISOString();p.docNames[el.dataset.k]=f.name.slice(0,40);save();render();toast('Marked as on file')}
+ if(el.dataset.c==='pdoc'){const p=person(el.dataset.id);p.docs=p.docs||{};p.docNames=p.docNames||{};p.docs[el.dataset.k]=new Date().toISOString();p.docNames[el.dataset.k]=f.name.slice(0,40);if(p.docBypass)delete p.docBypass[el.dataset.k];save();close();render();toast(tr('Form saved','Formulario guardado'))}
  if(el.dataset.c==='cphoto'){const c=cust(el.dataset.id);if(await keepPhoto(f,{cust:c.id,label:'Photo'})){render();toast(`Photo saved to ${c.name}`)}else toast("That photo couldn't be saved")}
  if(el.dataset.c==='lphoto'){const d=UI.draft,it=plant(el.dataset.id);const n=(S.photos||[]).length;if(await keepPhoto(f,{cust:d.cust,label:'Estimate photo · '+it.name})){d.photos=d.photos||{};d.photos[el.dataset.id]=S.photos[S.photos.length-1].id;render();toast('Photo attached. It is also saved on the customer.')}}
 });
